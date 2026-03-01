@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mazegen"
+version = "0.1.0"
+description = "Reusable maze generator module for the 42 A-Maze-ing project"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "jbarthel" },
+  { name = "oguizol" }
+]
+
+[tool.setuptools]
+py-modules = ["mazegen"]
+
+[tool.mypy]
+exclude = [
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".*\\.egg-info",
+]
