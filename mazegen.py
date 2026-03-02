@@ -172,6 +172,12 @@ class MazeGenerator:
 
         self._entry = entry
         self._exit = exit_
+        self.initialize_maze_grid()
+        i = 1
+        while i < self.params.height*self.params.width:
+            random_cell = self.get_random_cell()
+            if self.carve_passage(random_cell):
+                i += 1
         raise NotImplementedError("Maze generation is not implemented yet.")
 
     def shortest_path(self) -> str:
