@@ -24,12 +24,20 @@ clean:
 	rm -rf .mypy_cache .pytest_cache
 
 lint:
-	flake8 .
-	. .venv/bin/activate && mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+	flake8 . --exclude .venv
+	@if [ -z "$$VIRTUAL_ENV" ]; then \
+		. .venv/bin/activate && mypy . --exclude .venv --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs; \
+	else \
+		mypy . --exclude .venv --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs; \
+	fi
 
 lint-strict:
-	flake8 .
-	. .venv/bin/activate && mypy . --strict
+	flake8 . --exclude .venv
+	@if [ -z "$$VIRTUAL_ENV" ]; then \
+		. .venv/bin/activate && mypy . --strict; \
+	else \
+		mypy . --strict; \
+	fi
 
 package:
 	@if [ ! -d .venv ]; then \

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntFlag
+import random
 from typing import Optional
 
 
@@ -46,6 +47,7 @@ class Cell:
     is_pattern: bool = False
     visited: bool = False
     distance: int = -1  # -1 = not computed yet
+    cluster_id: Optional[int] = None  # For maze generation algorithms
 
     def has_wall(self, direction: WallBits) -> bool:
         """Check if a wall exists in the given direction.
@@ -121,13 +123,7 @@ class MazeGenerator:
             height: Maze height (number of rows).
             seed: Random seed for generation (None for random).
             perfect: True for perfect maze, False for imperfect.
-
-        Raises:
-            ValueError: If width or height are not positive.
         """
-        if width <= 0 or height <= 0:
-            raise ValueError("width and height must be positive")
-
         self.params = GeneratorParams(
             width=width,
             height=height,
@@ -150,29 +146,41 @@ class MazeGenerator:
             Generated maze structure.
 
         Raises:
-            ValueError: If entry and exit are the same cell, or coordinates
-                are out of bounds.
             NotImplementedError: Skeleton placeholder.
         """
-        # Validate coordinates are within bounds
-        if not (
-            0 <= entry[0] < self.params.width
-            and 0 <= entry[1] < self.params.height
-        ):
-            raise ValueError(f"Entry {entry} is out of bounds")
-        if not (
-            0 <= exit_[0] < self.params.width
-            and 0 <= exit_[1] < self.params.height
-        ):
-            raise ValueError(f"Exit {exit_} is out of bounds")
-
-        # Validate entry and exit are different cells
-        if entry == exit_:
-            raise ValueError("Entry and exit must be different cells")
-
         self._entry = entry
         self._exit = exit_
+        self.initialize_maze_grid()
+        i = 1
+        while i < self.params.height * self.params.width:
+            random_cell = self.get_random_cell()
+            if self.carve_passage(random_cell):
+                i += 1
         raise NotImplementedError("Maze generation is not implemented yet.")
+
+    def initialize_maze_grid(self) -> None:
+        """Initialize the maze grid with default cells."""
+        self._maze = [
+            [
+                Cell(cluster_id=j * self.params.width + i)
+                for i in range(self.params.width)
+            ]
+            for j in range(self.params.height)
+        ]
+        if self._entry:
+            self._maze[self._entry[1]][self._entry[0]].is_entry = True
+        if self._exit:
+            self._maze[self._exit[1]][self._exit[0]].is_exit = True
+
+    def get_random_cell(self) -> Cell:
+        """Get a random cell from the maze grid.
+        Returns:
+            A random Cell object from the maze grid.
+        """
+        cell_nb = random.randint(0, self.params.width * self.params.height - 1)
+        row = cell_nb // self.params.width
+        col = cell_nb % self.params.width
+        return self._maze[row][col]
 
     def shortest_path(self) -> str:
         """Return the shortest valid path from entry to exit (N/E/S/W).
