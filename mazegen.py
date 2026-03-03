@@ -27,6 +27,15 @@ class WallBits(IntFlag):
     SOUTH = 0b0100  # 4
     WEST = 0b1000  # 8
 
+    def opposite(self) -> WallBits:
+        """Get the opposite wall direction."""
+        return {
+            WallBits.NORTH: WallBits.SOUTH,
+            WallBits.EAST: WallBits.WEST,
+            WallBits.SOUTH: WallBits.NORTH,
+            WallBits.WEST: WallBits.EAST,
+        }[self]
+
 
 @dataclass
 class Cell:
@@ -42,12 +51,14 @@ class Cell:
     """
 
     walls: int = 0xF  # All walls by default (15)
+    col: int = 0
+    row: int = 0
     is_entry: bool = False
     is_exit: bool = False
     is_pattern: bool = False
     visited: bool = False
     distance: int = -1  # -1 = not computed yet
-    cluster_id: Optional[int] = None  # For maze generation algorithms
+    cluster_id: int = -1  # For maze generation algorithms
 
     def has_wall(self, direction: WallBits) -> bool:
         """Check if a wall exists in the given direction.
@@ -83,6 +94,14 @@ class Cell:
             Single hexadecimal character representing the wall bitmask.
         """
         return f"{self.walls:X}"
+
+    def to_binary(self) -> str:
+        """Convert walls to 4-bit binary string (N/E/S/W).
+
+        Returns:
+            4-character string of '0' and '1' representing walls.
+        """
+        return f"{self.walls:04b}"
 
 
 Coordinate = tuple[int, int]
@@ -130,12 +149,29 @@ class MazeGenerator:
             seed=seed,
             perfect=perfect,
         )
+        random.seed(self.params.seed)
         self._maze: MazeGrid = []
         self._entry: Optional[Coordinate] = None
         self._exit: Optional[Coordinate] = None
         self._solution: Optional[str] = None
+        self._openable_cells_numbers: list[int] = []
+        self._clusters: dict[int, list[Cell]] = {}
 
-    def generate(self, entry: Coordinate, exit_: Coordinate) -> MazeGrid:
+    def _create_empty_grid(self) -> MazeGrid:
+        """Create an empty maze grid with default cells.
+
+        Returns:
+            A 2D grid of Cell objects.
+        """
+        return [
+            [
+                Cell(cluster_id=j * self.params.width + i, col=i, row=j)
+                for i in range(self.params.width)
+            ]
+            for j in range(self.params.height)
+        ]
+
+    def generate(self, entry: Coordinate, exit_: Coordinate) -> None:
         """Generate a maze from entry to exit.
 
         Args:
@@ -156,28 +192,80 @@ class MazeGenerator:
             random_cell = self.get_random_cell()
             if self.carve_passage(random_cell):
                 i += 1
-        raise NotImplementedError("Maze generation is not implemented yet.")
+
+    def carve_passage(self, cell: Cell) -> bool:
+        """Carve a passage from the given cell to a random neighbor.
+
+        Args:
+            cell: The current cell to carve from."""
+        neighbors = self.get_neighbors(cell)
+        random.shuffle(neighbors)
+        for neighbor, direction in neighbors:
+            if neighbor.cluster_id != cell.cluster_id:
+                # Merge clusters
+                old_cluster_id = max(cell.cluster_id, neighbor.cluster_id)
+                new_cluster_id = min(cell.cluster_id, neighbor.cluster_id)
+                for c in self._clusters[old_cluster_id]:
+                    c.cluster_id = new_cluster_id
+                    self._clusters[new_cluster_id].append(c)
+                self._clusters.pop(old_cluster_id)
+                # Carve passage between cell and neighbor
+                cell.remove_wall(direction)
+                neighbor.remove_wall(direction.opposite())
+                return True
+        return False
+
+    def get_neighbors(self, cell: Cell) -> list[tuple[Cell, WallBits]]:
+        """Get neighboring cells and their wall directions.
+
+        Args:
+            cell: The current cell to find neighbors for.
+
+        Returns:
+            List of neighboring cells and their wall directions.
+        """
+        neighbors = []
+        if cell.row > 0:
+            neighbors.append(
+                (self._maze[cell.row - 1][cell.col], WallBits.NORTH)
+            )
+        if cell.col < self.params.width - 1:
+            neighbors.append(
+                (self._maze[cell.row][cell.col + 1], WallBits.EAST)
+            )
+        if cell.row < self.params.height - 1:
+            neighbors.append(
+                (self._maze[cell.row + 1][cell.col], WallBits.SOUTH)
+            )
+        if cell.col > 0:
+            neighbors.append(
+                (self._maze[cell.row][cell.col - 1], WallBits.WEST)
+            )
+        return neighbors
 
     def initialize_maze_grid(self) -> None:
-        """Initialize the maze grid with default cells."""
-        self._maze = [
-            [
-                Cell(cluster_id=j * self.params.width + i)
-                for i in range(self.params.width)
-            ]
-            for j in range(self.params.height)
-        ]
+        """Initialize the maze grid for generation."""
+        self._maze = self._create_empty_grid()
+        k = 0
+        for j in range(self.params.height):
+            for i in range(self.params.width):
+                self._maze[j][i].cluster_id = k
+                self._clusters[k] = [self._maze[j][i]]
+                k += 1
         if self._entry:
             self._maze[self._entry[1]][self._entry[0]].is_entry = True
         if self._exit:
             self._maze[self._exit[1]][self._exit[0]].is_exit = True
+        self.openable_cells_numbers = range(
+            self.params.width * self.params.height
+        )
 
     def get_random_cell(self) -> Cell:
         """Get a random cell from the maze grid.
         Returns:
             A random Cell object from the maze grid.
         """
-        cell_nb = random.randint(0, self.params.width * self.params.height - 1)
+        cell_nb = random.choice(self.openable_cells_numbers)
         row = cell_nb // self.params.width
         col = cell_nb % self.params.width
         return self._maze[row][col]
@@ -206,3 +294,22 @@ class MazeGenerator:
             if not yet computed.
         """
         return self._solution
+
+    def get_hex_grid(self) -> list[list[str]]:
+        """Get the maze  as a grid of hexadecimal wall representations.
+
+        Returns:
+            A 2D list of strings, where each string is a hexadecimal
+            character representing the walls of the corresponding cell.
+        """
+        return [[cell.to_hex() for cell in row] for row in self._maze]
+
+    def get_binary_grid(self) -> list[list[str]]:
+        """Get the maze as a grid of binary wall representations.
+
+        Returns:
+            A 2D list of strings, where each string is a 4-character
+            binary representation of the walls (N/E/S/W) for the
+            corresponding cell.
+        """
+        return [[cell.to_binary() for cell in row] for row in self._maze]
