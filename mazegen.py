@@ -50,7 +50,9 @@ class Cell:
         distance: Distance from entry (for BFS/shortest path).
     """
 
-    walls: int = 0xF  # All walls by default (15)
+    walls: WallBits = (
+        WallBits.NORTH | WallBits.EAST | WallBits.SOUTH | WallBits.WEST
+    )
     col: int = 0
     row: int = 0
     is_entry: bool = False
@@ -93,7 +95,7 @@ class Cell:
         Returns:
             Single hexadecimal character representing the wall bitmask.
         """
-        return f"{self.walls:X}"
+        return f"{int(self.walls):X}"
 
     def to_binary(self) -> str:
         """Convert walls to 4-bit binary string (N/E/S/W).
@@ -101,7 +103,7 @@ class Cell:
         Returns:
             4-character string of '0' and '1' representing walls.
         """
-        return f"{self.walls:04b}"
+        return f"{int(self.walls):04b}"
 
 
 Coordinate = tuple[int, int]
