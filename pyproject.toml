@@ -26,3 +26,7 @@ exclude = [
     ".pytest_cache",
     ".*\\.egg-info",
 ]
+
+[tool.black]
+line-length = 79
+extend-exclude = ".venv"

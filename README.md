@@ -18,12 +18,12 @@
 ### Prerequisites
 - Python >= 3.10
 - Make
-- Virtual environment (`venv`) recommended
+- Virtual environment (`virtualenv`) recommended
 - MLX (optional, for graphical rendering only - see [INSTALL_MLX.md](INSTALL_MLX.md))
 
 ### Virtual environment (recommended)
 ```bash
-python3 -m venv .venv
+python3 -m virtualenv .venv
 source .venv/bin/activate
 make install
 # leave the virtual environment
@@ -334,7 +334,7 @@ git push --force-with-lease
 
 **Setup phase completed:**
 - ✅ Git workflow defined (branches, PR rules)
-- ✅ Python environment structure (venv, requirements.txt)
+- ✅ Python environment structure (virtualenv, requirements.txt)
 - ✅ Makefile automation (install, run, debug, lint, package, clean)
 - ✅ Module skeleton (mazegen.py + a_maze_ing.py)
 - ✅ Package build infrastructure (pyproject.toml)
