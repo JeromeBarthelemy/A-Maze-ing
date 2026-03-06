@@ -18,16 +18,38 @@
 ### Prerequisites
 - Python >= 3.10
 - Make
-- Virtual environment (`virtualenv`) recommended
+- **uv** (recommended) - Fast Python package manager
+  ```bash
+  # Install uv (if not already installed)
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  # Restart your shell or run:
+  source ~/.bashrc
+  ```
 - MLX (optional, for graphical rendering only - see [INSTALL_MLX.md](INSTALL_MLX.md))
 
-### Virtual environment (recommended)
+### Quick Start
 ```bash
-python3 -m virtualenv .venv
-source .venv/bin/activate
+# 1. Install uv (if needed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Install dependencies (creates .venv automatically)
 make install
-# leave the virtual environment
-deactivate
+
+# 3. Run the program
+make run
+```
+
+> **Note:** `uv` automatically creates and manages the virtual environment.
+> No need to manually activate it - `uv run` handles everything!
+
+### Virtual environment (advanced)
+```bash
+# uv creates .venv automatically during install
+make install
+
+# Direct usage (without make)
+uv sync --all-extras
+uv run python a_maze_ing.py config.txt
 ```
 
 ### Install
@@ -64,7 +86,11 @@ make lint-strict
 
 ### Clean
 ```bash
+# Remove cache files, build artifacts, and dist folders
 make clean
+
+# Remove everything including .venv and uv.lock (fresh start)
+make clean-all
 ```
 
 ## Usage
@@ -294,9 +320,9 @@ git push --force-with-lease
 .
 ├── a_maze_ing.py              # CLI entry point
 ├── mazegen.py                 # Reusable generator module
-├── pyproject.toml             # Package build configuration
+├── pyproject.toml             # Project config & dependencies
+├── uv.lock                    # Locked dependency versions
 ├── config.txt                 # Default config file
-├── requirements.txt           # Python dependencies
 ├── Makefile                   # Build automation
 ├── .gitignore                 # Git exclusions
 ├── README.md                  # This file
@@ -306,6 +332,7 @@ git push --force-with-lease
 ├── mlx-2.2-py3-ubuntu-any.whl # MLX library (Ubuntu)
 ├── mlx-2.2-py3-fedora-any.whl # MLX library (Fedora)
 ├── mlx_CLXV-2.2.tgz           # MLX source archive
+├── .venv/                     # Virtual environment (auto-created by uv)
 └── dist/                      # Generated package artifacts (after make package)
 ```
 
@@ -334,8 +361,9 @@ git push --force-with-lease
 
 **Setup phase completed:**
 - ✅ Git workflow defined (branches, PR rules)
-- ✅ Python environment structure (virtualenv, requirements.txt)
+- ✅ Python environment with uv (modern package manager)
 - ✅ Makefile automation (install, run, debug, lint, package, clean)
+- ✅ Dependencies managed via pyproject.toml + uv.lock
 - ✅ Module skeleton (mazegen.py + a_maze_ing.py)
 - ✅ Package build infrastructure (pyproject.toml)
 - ✅ Default config file (config.txt)

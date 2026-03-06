@@ -1,50 +1,51 @@
-PYTHON ?= python3
-PIP ?= $(PYTHON) -m pip
+SHELL := /bin/bash
+export PATH := $(HOME)/.local/bin:$(PATH)
 
 MAIN ?= a_maze_ing.py
 CONFIG ?= config.txt
 
-.PHONY: install run debug clean lint lint-strict package
+# Check if uv is installed
+UV := $(shell command -v uv 2>/dev/null)
 
-install:
-	@if [ -f requirements.txt ]; then \
-		$(PIP) install -r requirements.txt; \
-	fi
-	$(PIP) install flake8 mypy
+.PHONY: install run debug clean clean-all lint lint-strict package check-uv
 
-run:
-	$(PYTHON) $(MAIN) $(CONFIG)
+check-uv:
+ifndef UV
+	@echo "Error: uv is not installed or not in PATH."
+	@echo "Install it with: curl -LsSf https://astral.sh/uv/install.sh | sh"
+	@echo "Then restart your shell or run: source ~/.bashrc"
+	@exit 1
+endif
 
-debug:
-	$(PYTHON) -m pdb $(MAIN) $(CONFIG)
+install: check-uv
+	uv sync --all-extras
+
+run: check-uv
+	uv run python $(MAIN) $(CONFIG)
+
+debug: check-uv
+	uv run python -m pdb $(MAIN) $(CONFIG)
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type f -name "*.py[co]" -delete
 	rm -rf .mypy_cache .pytest_cache
+	rm -rf dist build *.egg-info
 
-lint:
-	flake8 . --exclude .venv
-	@if [ -z "$$VIRTUAL_ENV" ]; then \
-		. .venv/bin/activate && mypy . --exclude .venv --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs; \
-	else \
-		mypy . --exclude .venv --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs; \
-	fi
+# Clean everything including virtual environment
+clean-all: clean
+	rm -rf .venv uv.lock
 
-lint-strict:
-	flake8 . --exclude .venv
-	@if [ -z "$$VIRTUAL_ENV" ]; then \
-		. .venv/bin/activate && mypy . --strict; \
-	else \
-		mypy . --strict; \
-	fi
+lint: check-uv
+	uv run flake8 . --exclude .venv
+	uv run mypy . --exclude .venv --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 
-package:
-	@if [ ! -d .venv ]; then \
-		$(PYTHON) -m venv .venv; \
-	fi
-	@. .venv/bin/activate && \
-		python -m pip install --upgrade pip build && \
-		python -m build
+lint-strict: check-uv
+	uv run flake8 . --exclude .venv
+	uv run mypy . --strict
+
+package: check-uv
+	uv sync
+	uv run python -m build
 	cp -f dist/mazegen-*.whl . || true
 	cp -f dist/mazegen-*.tar.gz . || true
