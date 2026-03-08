@@ -101,6 +101,7 @@ class MazeApp(App[None]):
 
     CSS = """
     #maze-container {
+        align: center middle;
         overflow: auto;
         border: none;
     }
