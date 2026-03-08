@@ -1,0 +1,14 @@
+[flake8]
+exclude =
+    .venv,
+    venv,
+    env,
+    .git,
+    __pycache__,
+    dist,
+    build,
+    *.egg-info,
+    .mypy_cache,
+    .pytest_cache,
+    mazegen.egg-info,
+    graphic_visualizer

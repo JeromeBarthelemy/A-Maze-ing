@@ -16,7 +16,8 @@ from pydantic import ValidationError
 from mazegen import MazeGenerator
 from config_model import MazeConfig
 
-from tools import print_grid
+# from tools import print_grid
+from graphic_visualizer import MazeApp
 
 
 def parse_config(config_path: Path) -> dict[str, int | str | bool]:
@@ -77,12 +78,14 @@ def main() -> int:
         exit_: tuple[int, int] = config["EXIT"]  # type: ignore
         generator.generate(entry=entry, exit_=exit_)
         print("Maze generated successfully.")
-        hex_grid = generator.get_hex_grid()
-        binary_grid = generator.get_binary_grid()
+        # hex_grid = generator.get_hex_grid()
+        # binary_grid = generator.get_binary_grid()
         # maze = generator.get_structure()
         print("Generated Maze:")
-        print_grid(hex_grid)
-        print_grid(binary_grid)
+        # print_grid(hex_grid)
+        # print_grid(binary_grid)
+        MazeApp(generator).run()
+
         return 0
     except ValueError as e:
         print(f"Error initializing maze generator: {e}", file=sys.stderr)
