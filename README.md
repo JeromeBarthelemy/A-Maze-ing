@@ -68,7 +68,9 @@ make package
 ### Run
 ```bash
 make run
-# or
+# or with uv directly
+uv run python a_maze_ing.py config.txt
+# or if .venv is activated
 python3 a_maze_ing.py config.txt
 ```
 
@@ -86,7 +88,7 @@ make lint-strict
 
 ### Clean
 ```bash
-# Remove cache files, build artifacts, and dist folders
+# Remove cache files, build artifacts, dist folders, and packages
 make clean
 
 # Remove everything including .venv and uv.lock (fresh start)
@@ -97,6 +99,13 @@ make clean-all
 
 ### Command
 ```bash
+# Recommended (with uv)
+uv run python a_maze_ing.py config.txt
+
+# Or with make
+make run
+
+# Or if .venv is activated
 python3 a_maze_ing.py config.txt
 ```
 
@@ -180,14 +189,13 @@ SEED=42
 
 ### Build the package
 ```bash
-python3 -m pip install build
-python3 -m build
+make package
 ```
 
-Or use:
-
+Or manually with uv:
 ```bash
-make package
+uv sync
+uv run python -m build
 ```
 
 Generated files will be available in `dist/` with names like:

@@ -10,4 +10,5 @@ exclude =
     *.egg-info,
     .mypy_cache,
     .pytest_cache,
-    mazegen.egg-info
+    mazegen.egg-info,
+    graphic_visualizer

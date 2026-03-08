@@ -33,3 +33,6 @@ htmlcov/
 # Local runtime outputs
 *.log
 *.tmp
+
+# Local tests
+graphic_visualizer/

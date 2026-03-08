@@ -31,21 +31,22 @@ clean:
 	find . -type f -name "*.py[co]" -delete
 	rm -rf .mypy_cache .pytest_cache
 	rm -rf dist build *.egg-info
+	rm -f mazegen-*.whl mazegen-*.tar.gz
 
 # Clean everything including virtual environment
 clean-all: clean
 	rm -rf .venv uv.lock
 
 lint: check-uv
-	uv run flake8 . --exclude .venv
-	uv run mypy . --exclude .venv --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+	uv run flake8 . 
+	uv run mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 
 lint-strict: check-uv
-	uv run flake8 . --exclude .venv
+	uv run flake8 .
 	uv run mypy . --strict
 
 package: check-uv
-	uv sync
+	uv sync --all-extras
 	uv run python -m build
 	cp -f dist/mazegen-*.whl . || true
 	cp -f dist/mazegen-*.tar.gz . || true

@@ -38,6 +38,7 @@ exclude = [
     ".mypy_cache",
     ".pytest_cache",
     ".*\\.egg-info",
+    "graphic_visualizer"
 ]
 
 [tool.black]
