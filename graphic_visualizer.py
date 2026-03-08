@@ -9,7 +9,7 @@ from typing import Any
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Static, Header
-from textual.containers import Center, Grid
+from textual.containers import Container, Grid
 
 from mazegen import MazeGenerator, WallBits, Cell
 
@@ -100,6 +100,11 @@ class MazeApp(App[None]):
     }
 
     CSS = """
+    #maze-container {
+        overflow: auto;
+        border: none;
+    }
+
     #labyrinthe {
         layout: grid;
         border: heavy $primary;
@@ -131,7 +136,7 @@ class MazeApp(App[None]):
         w, h = self.maze_gen.params.width, self.maze_gen.params.height
         maze_grid = self.maze_gen.get_structure()
 
-        with Center():
+        with Container(id="maze-container"):
             with Grid(id="labyrinthe"):
                 for r in range(h):
                     for c in range(w):
