@@ -156,8 +156,37 @@ class MazeGenerator:
         self._entry: Optional[Coordinate] = None
         self._exit: Optional[Coordinate] = None
         self._solution: Optional[str] = None
-        self._openable_cells_numbers: list[int] = []
-        self._clusters: dict[int, list[Cell]] = {}
+        self._parent: list[int] = []
+        self._size: list[int] = []
+
+    def _cell_index(self, row: int, col: int) -> int:
+        """Convert (row, col) into a Union-Find index."""
+        return row * self.params.width + col
+
+    def _find(self, index: int) -> int:
+        """Find the representative of a set (with path compression)."""
+        if self._parent[index] != index:
+            self._parent[index] = self._find(self._parent[index])
+        return self._parent[index]
+
+    def _union(self, index_a: int, index_b: int) -> bool:
+        """Union two sets by size.
+
+        Returns:
+            True if a merge happened, False if already in same set.
+        """
+        root_a = self._find(index_a)
+        root_b = self._find(index_b)
+
+        if root_a == root_b:
+            return False
+
+        if self._size[root_a] < self._size[root_b]:
+            root_a, root_b = root_b, root_a
+
+        self._parent[root_b] = root_a
+        self._size[root_a] += self._size[root_b]
+        return True
 
     def _create_empty_grid(self) -> MazeGrid:
         """Create an empty maze grid with default cells.
@@ -172,6 +201,30 @@ class MazeGenerator:
             ]
             for j in range(self.params.height)
         ]
+
+    def _build_candidate_edges(
+        self,
+    ) -> list[tuple[Cell, Cell, WallBits]]:
+        """Build all unique neighbor edges for Kruskal generation.
+
+        Returns:
+            List of (cell, neighbor, direction_from_cell_to_neighbor).
+        """
+        edges: list[tuple[Cell, Cell, WallBits]] = []
+
+        for row in range(self.params.height):
+            for col in range(self.params.width):
+                cell = self._maze[row][col]
+
+                if col < self.params.width - 1:
+                    east = self._maze[row][col + 1]
+                    edges.append((cell, east, WallBits.EAST))
+
+                if row < self.params.height - 1:
+                    south = self._maze[row + 1][col]
+                    edges.append((cell, south, WallBits.SOUTH))
+
+        return edges
 
     def generate(self, entry: Coordinate, exit_: Coordinate) -> None:
         """Generate a maze from entry to exit.
@@ -189,33 +242,30 @@ class MazeGenerator:
         self._entry = entry
         self._exit = exit_
         self.initialize_maze_grid()
-        i = 1
-        while i < self.params.height * self.params.width:
-            random_cell = self.get_random_cell()
-            if self.carve_passage(random_cell):
-                i += 1
 
-    def carve_passage(self, cell: Cell) -> bool:
-        """Carve a passage from the given cell to a random neighbor.
+        edges = self._build_candidate_edges()
+        random.shuffle(edges)
 
-        Args:
-            cell: The current cell to carve from."""
-        neighbors = self.get_neighbors(cell)
-        random.shuffle(neighbors)
-        for neighbor, direction in neighbors:
-            if neighbor.cluster_id != cell.cluster_id:
-                # Merge clusters
-                old_cluster_id = max(cell.cluster_id, neighbor.cluster_id)
-                new_cluster_id = min(cell.cluster_id, neighbor.cluster_id)
-                for c in self._clusters[old_cluster_id]:
-                    c.cluster_id = new_cluster_id
-                    self._clusters[new_cluster_id].append(c)
-                self._clusters.pop(old_cluster_id)
-                # Carve passage between cell and neighbor
+        opened_passages = 0
+        target_passages = self.params.width * self.params.height - 1
+
+        for cell, neighbor, direction in edges:
+            cell_index = self._cell_index(cell.row, cell.col)
+            neighbor_index = self._cell_index(neighbor.row, neighbor.col)
+
+            if self._union(cell_index, neighbor_index):
                 cell.remove_wall(direction)
                 neighbor.remove_wall(direction.opposite())
-                return True
-        return False
+                opened_passages += 1
+
+                if opened_passages == target_passages:
+                    break
+
+        for row in self._maze:
+            for cell in row:
+                cell.cluster_id = self._find(
+                    self._cell_index(cell.row, cell.col)
+                )
 
     def get_neighbors(self, cell: Cell) -> list[tuple[Cell, WallBits]]:
         """Get neighboring cells and their wall directions.
@@ -248,29 +298,19 @@ class MazeGenerator:
     def initialize_maze_grid(self) -> None:
         """Initialize the maze grid for generation."""
         self._maze = self._create_empty_grid()
-        k = 0
+
+        total_cells = self.params.width * self.params.height
+        self._parent = list(range(total_cells))
+        self._size = [1] * total_cells
+
         for j in range(self.params.height):
             for i in range(self.params.width):
-                self._maze[j][i].cluster_id = k
-                self._clusters[k] = [self._maze[j][i]]
-                k += 1
+                self._maze[j][i].cluster_id = self._cell_index(j, i)
+
         if self._entry:
             self._maze[self._entry[1]][self._entry[0]].is_entry = True
         if self._exit:
             self._maze[self._exit[1]][self._exit[0]].is_exit = True
-        self.openable_cells_numbers = range(
-            self.params.width * self.params.height
-        )
-
-    def get_random_cell(self) -> Cell:
-        """Get a random cell from the maze grid.
-        Returns:
-            A random Cell object from the maze grid.
-        """
-        cell_nb = random.choice(self.openable_cells_numbers)
-        row = cell_nb // self.params.width
-        col = cell_nb % self.params.width
-        return self._maze[row][col]
 
     def shortest_path(self) -> str:
         """Return the shortest valid path from entry to exit (N/E/S/W).
