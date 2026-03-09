@@ -1,3 +1,5 @@
+"""Pydantic schema and validators for maze configuration values."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator, ValidationInfo
@@ -17,7 +19,17 @@ class MazeConfig(BaseModel):
 
     @field_validator("ENTRY", "EXIT", mode="before")
     def parse_coords(cls, v: str) -> Tuple[int, int]:
-        """Parse comma-separated coordinates."""
+        """Parse comma-separated coordinates into an ``(x, y)`` tuple.
+
+        Args:
+            v: Raw coordinate value from configuration input.
+
+        Returns:
+            Parsed coordinate pair.
+
+        Raises:
+            ValueError: If the coordinate format is invalid.
+        """
         try:
             coords = tuple(int(x.strip()) for x in v.split(","))
             if len(coords) != 2:
@@ -30,7 +42,18 @@ class MazeConfig(BaseModel):
     def validate_coords(
         cls, v: Tuple[int, int], info: ValidationInfo
     ) -> Tuple[int, int]:
-        """Validate coordinates are positive and within bounds."""
+        """Validate coordinates are non-negative and within bounds.
+
+        Args:
+            v: Parsed coordinate pair.
+            info: Validation context containing peer field values.
+
+        Returns:
+            The validated coordinate pair.
+
+        Raises:
+            ValueError: If coordinates are out of allowed range.
+        """
         x, y = v
         # Check coordinates are non-negative
         if x < 0 or y < 0:
@@ -53,7 +76,18 @@ class MazeConfig(BaseModel):
     def validate_exit_different_from_entry(
         cls, v: Tuple[int, int], info: ValidationInfo
     ) -> Tuple[int, int]:
-        """Validate that EXIT is different from ENTRY."""
+        """Ensure ``EXIT`` differs from ``ENTRY``.
+
+        Args:
+            v: Exit coordinate pair.
+            info: Validation context containing peer field values.
+
+        Returns:
+            The validated exit coordinate pair.
+
+        Raises:
+            ValueError: If ``EXIT`` equals ``ENTRY``.
+        """
         if hasattr(info, "data") and "ENTRY" in info.data:
             if v == info.data["ENTRY"]:
                 raise ValueError(f"EXIT {v} cannot be the same as ENTRY")

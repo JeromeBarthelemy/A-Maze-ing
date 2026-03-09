@@ -7,7 +7,7 @@
 - **Project overview:**
   - Input: a config file (`KEY=VALUE`)
   - Processing: maze generation + validation + shortest path
-  - Output: maze file + visual rendering (terminal or MLX)
+  - Output: maze file + visual rendering (Textual TUI)
 - **Scope (mandatory):**
   - Random generation with reproducibility via seed
   - `PERFECT=True` support (single path entry → exit)
@@ -25,7 +25,7 @@
   # Restart your shell or run:
   source ~/.bashrc
   ```
-- MLX (optional, for graphical rendering only - see [INSTALL_MLX.md](INSTALL_MLX.md))
+- Textual (installed via project dependencies)
 
 ### Quick Start
 ```bash
@@ -57,8 +57,8 @@ uv run python a_maze_ing.py config.txt
 make install
 ```
 
-> **Note:** MLX (graphical rendering) is optional and documented separately in [INSTALL_MLX.md](INSTALL_MLX.md).
-> The wheels provided may be incompatible with Python 3.12+. Install it manually when needed for visual development.
+> **Note:** The current visual mode relies on Textual TUI and is installed
+> with project dependencies.
 
 ### Build reusable package
 ```bash
@@ -84,6 +84,18 @@ make debug
 make lint
 # optional strict mode
 make lint-strict
+```
+
+### Tests
+```bash
+# quick test run
+make test
+
+# verbose output
+make test-verbose
+
+# direct usage
+uv run pytest -q
 ```
 
 ### Clean
@@ -131,7 +143,7 @@ One `KEY=VALUE` per line. Lines starting with `#` are comments.
 ### Optional keys (team choices)
 - `SEED=<int>`
 - `ALGORITHM=<name>`
-- `DISPLAY_MODE=<ascii|mlx>`
+- `DISPLAY_MODE=<textual>`
 - `WALL_COLOR=<name|hex>`
 
 ### Example config
@@ -154,29 +166,41 @@ SEED=42
   - bit 2: South
   - bit 3: West
 - Rows written line by line
-- Then an empty line, then 3 lines:
-  1. entry coordinates
-  2. exit coordinates
+- Then one empty line
+- Then 3 lines (all terminated by `\n`):
+  1. entry coordinates (`x,y`)
+  2. exit coordinates (`x,y`)
   3. shortest valid path (`N`, `E`, `S`, `W`)
 
 ### Output example
-> TODO: Add a real output example produced by the project.
+```text
+9D9D1D
+AC9C26
+E368A6
+...
+
+0,0
+19,14
+EESSENNW...
+```
 
 ## Maze Generation Algorithm
-- **Chosen algorithm:** TODO (e.g., recursive backtracker / Prim / Kruskal)
-- **Why this algorithm:** TODO (complexity, quality of mazes, implementation simplicity)
-- **Seed/reproducibility strategy:** TODO
-- **Perfect maze behavior:** TODO
+- **Chosen algorithm:** randomized Kruskal on cell-adjacency graph
+- **Disjoint set structure:** Union-Find (path compression + union by size)
+- **Seed/reproducibility strategy:** Python `random.seed(SEED)`
+- **Perfect maze behavior:** exactly `W*H - 1` passages opened, no cycles,
+  all cells connected (single unique path between two cells)
 
 ## Visual Representation
-- **Mode implemented:** TODO (`ASCII`, `MLX`, or both)
+- **Mode implemented:** Textual TUI (`graphic_visualizer.py`)
 - Must show:
   - walls
   - entry / exit
-  - shortest path (toggle)
-  - wall colors (change interaction)
-  - optional dedicated colors for the `42` pattern
-- **Controls:** TODO (keys/buttons and behavior)
+  - shortest path (highlighted)
+  - optional dedicated color for the `42` pattern (`is_pattern`)
+- **Controls:**
+  - `q`: quit
+  - `d`: toggle dark mode
 
 ## Reusability (Mandatory)
 
@@ -199,8 +223,8 @@ uv run python -m build
 ```
 
 Generated files will be available in `dist/` with names like:
-- `mazegen-0.1.0-py3-none-any.whl`
-- `mazegen-0.1.0.tar.gz`
+- `mazegen-0.2.0-py3-none-any.whl`
+- `mazegen-0.2.0.tar.gz`
 
 For final submission, copy at least one generated artifact to repository root
 to match the project requirement.
@@ -210,7 +234,8 @@ to match the project requirement.
 from mazegen import MazeGenerator
 
 generator = MazeGenerator(width=20, height=15, seed=42, perfect=True)
-maze = generator.generate(entry=(0, 0), exit=(19, 14))
+generator.generate(entry=(0, 0), exit_=(19, 14))
+maze = generator.get_structure()
 path = generator.shortest_path()
 ```
 
@@ -224,13 +249,13 @@ path = generator.shortest_path()
 
 ### Roles
 - `jbarthel`: 
-  - Maze generation algorithm: random path fusion
+  - Maze generation algorithm: randomized Kruskal + Union-Find
   - Config parsing using `python-dotenv`
   - Shortest path algorithm: BFS (Lee algorithm)
-  - Visual representation: MiniLibX (graphical)
+  - Visual representation: Textual TUI
 - `oguizol`: 
-  - Maze generation algorithm: exhaustive exploration
-  - Visual representation: ASCII terminal rendering
+  - Validation and tooling support
+  - Documentation and workflow support
 
 ### Initial planning
 
@@ -247,8 +272,8 @@ path = generator.shortest_path()
   - Both: Unit tests for parsing/validation
   
 - **Day 5-7:** Core Generation Algorithms
-  - jbarthel: Random path fusion algorithm implementation
-  - oguizol: Exhaustive exploration algorithm implementation
+  - jbarthel: Randomized Kruskal + Union-Find implementation
+  - oguizol: Alternative generation strategy exploration
   - Both: "42" pattern integration + perfect maze mode
 
 **Week 2 - Completion (Days 8-14):**
@@ -258,8 +283,8 @@ path = generator.shortest_path()
   - Both: Integration tests (generate → solve → write)
   
 - **Day 10-11:** Visual Representation
-  - jbarthel: MiniLibX graphical display + interactions
-  - oguizol: ASCII terminal rendering + interactions
+  - jbarthel: Textual TUI display + interactions
+  - oguizol: Textual TUI support and UX tests
   - Both: Color management + path toggle feature
   
 - **Day 12-13:** Testing & Polish
@@ -326,22 +351,24 @@ git push --force-with-lease
 ## Project Structure
 ```text
 .
+├── .flake8                   # Flake8 configuration
 ├── a_maze_ing.py              # CLI entry point
+├── config_model.py            # Pydantic config validation model
+├── graphic_visualizer.py      # Textual TUI maze visualizer
+├── graphic_visualizer/        # Visualizer resources/cache directory
 ├── mazegen.py                 # Reusable generator module
+├── tools.py                   # Utility helpers
+├── tests/                     # Pytest unit tests
 ├── pyproject.toml             # Project config & dependencies
 ├── uv.lock                    # Locked dependency versions
 ├── config.txt                 # Default config file
 ├── Makefile                   # Build automation
 ├── .gitignore                 # Git exclusions
 ├── README.md                  # This file
-├── INSTALL_MLX.md             # MLX installation guide (optional)
 ├── output_validator.py        # Provided validation script
 ├── en.subject.pdf             # Project subject
-├── mlx-2.2-py3-ubuntu-any.whl # MLX library (Ubuntu)
-├── mlx-2.2-py3-fedora-any.whl # MLX library (Fedora)
-├── mlx_CLXV-2.2.tgz           # MLX source archive
 ├── .venv/                     # Virtual environment (auto-created by uv)
-└── dist/                      # Generated package artifacts (after make package)
+└── .git/                      # Git repository metadata
 ```
 
 ## Resources
@@ -355,36 +382,32 @@ git push --force-with-lease
   - https://weblog.jamisbuck.org/2011/2/7/maze-generation-algorithm-recap
 
 ### AI usage disclosure (required)
-- **Tools used:** TODO (e.g., ChatGPT, Copilot)
-- **Used for:** TODO (brainstorming, test ideas, README drafting, refactor suggestions)
-- **Not used for:** TODO (critical algorithm implementation without understanding)
-- **Validation process:** TODO (peer review, tests, manual checks)
+- **Tools used:** GitHub Copilot (GPT-5.3-Codex)
+- **Used for:** refactoring, docstring normalization, robustness checks,
+  and README updates.
+- **Not used for:** blind integration without manual review.
+- **Validation process:** `flake8`, `mypy --strict`, runtime checks via
+  CLI and TUI execution.
 
 ## Bonus (if implemented)
 - Multiple generation algorithms
-- Multiple display modes
+- Multiple Textual display modes/themes
 - Additional interactions/options
 
 ## Current Project Status
 
-**Setup phase completed:**
-- ✅ Git workflow defined (branches, PR rules)
-- ✅ Python environment with uv (modern package manager)
-- ✅ Makefile automation (install, run, debug, lint, package, clean)
-- ✅ Dependencies managed via pyproject.toml + uv.lock
-- ✅ Module skeleton (mazegen.py + a_maze_ing.py)
-- ✅ Package build infrastructure (pyproject.toml)
-- ✅ Default config file (config.txt)
-- ✅ Documentation (README.md)
+**Implemented:**
+- ✅ Config parsing/validation with Pydantic
+- ✅ Maze generation with randomized Kruskal + Union-Find
+- ✅ Shortest path with Lee/BFS
+- ✅ Hex output file generation from CLI
+- ✅ Textual visualizer with entry/exit/pattern/path highlighting
+- ✅ Packaging (`make package`) for reusable `mazegen` module
+- ✅ Linting/typing workflow (`make lint`, `make lint-strict`)
 
-**Next implementation steps:**
-- ⬜ Config parser (parse_config function)
-- ⬜ Maze generation algorithm
-- ⬜ Output file writer (hex format)
-- ⬜ Shortest path computation (BFS/Lee algorithm)
-- ⬜ Visual representation (ASCII/MLX)
-- ⬜ "42" pattern integration
-- ⬜ Tests and validation
+**Open items:**
+- ⬜ Expand automated test coverage
+- ⬜ Final evaluator-oriented polishing/documentation
 
 ## Submission Notes
 - Ensure `README.md` is complete and up to date
