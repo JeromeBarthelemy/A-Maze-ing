@@ -13,6 +13,7 @@ Example:
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from enum import IntFlag
 import random
@@ -28,7 +29,11 @@ class WallBits(IntFlag):
     WEST = 0b1000  # 8
 
     def opposite(self) -> WallBits:
-        """Get the opposite wall direction."""
+        """Return the opposite wall direction.
+
+        Returns:
+            Opposite direction for the current wall bit.
+        """
         return {
             WallBits.NORTH: WallBits.SOUTH,
             WallBits.EAST: WallBits.WEST,
@@ -58,6 +63,7 @@ class Cell:
     is_entry: bool = False
     is_exit: bool = False
     is_pattern: bool = False
+    is_on_path: bool = False
     visited: bool = False
     distance: int = -1  # -1 = not computed yet
     cluster_id: int = -1  # For maze generation algorithms
@@ -121,13 +127,12 @@ class GeneratorParams:
 
 
 class MazeGenerator:
-    """Reusable maze generator API skeleton.
+    """Reusable maze generator based on Kruskal + Union-Find.
 
-    This class is intentionally a structural placeholder:
-    - instantiate with custom parameters
-    - generate a maze
-    - access generated structure
-    - access at least one solution path
+    Responsibilities:
+        - build a perfect maze with deterministic seeding support,
+        - expose the generated structure,
+        - compute one shortest path between entry and exit.
     """
 
     def __init__(
@@ -144,6 +149,10 @@ class MazeGenerator:
             height: Maze height (number of rows).
             seed: Random seed for generation (None for random).
             perfect: True for perfect maze, False for imperfect.
+
+        Initializes:
+            Internal maze storage, entry/exit coordinates, solution cache,
+            and Union-Find arrays used during generation.
         """
         self.params = GeneratorParams(
             width=width,
@@ -160,17 +169,36 @@ class MazeGenerator:
         self._size: list[int] = []
 
     def _cell_index(self, row: int, col: int) -> int:
-        """Convert (row, col) into a Union-Find index."""
+        """Convert grid coordinates into a Union-Find index.
+
+        Args:
+            row: Cell row index.
+            col: Cell column index.
+
+        Returns:
+            Flattened index in ``[0, width * height)``.
+        """
         return row * self.params.width + col
 
     def _find(self, index: int) -> int:
-        """Find the representative of a set (with path compression)."""
+        """Find the representative of a set with path compression.
+
+        Args:
+            index: Union-Find element index.
+
+        Returns:
+            Root index of the connected component.
+        """
         if self._parent[index] != index:
             self._parent[index] = self._find(self._parent[index])
         return self._parent[index]
 
     def _union(self, index_a: int, index_b: int) -> bool:
         """Union two sets by size.
+
+        Args:
+            index_a: First Union-Find element index.
+            index_b: Second Union-Find element index.
 
         Returns:
             True if a merge happened, False if already in same set.
@@ -229,15 +257,12 @@ class MazeGenerator:
     def generate(self, entry: Coordinate, exit_: Coordinate) -> None:
         """Generate a maze from entry to exit.
 
+        Uses randomized Kruskal on the grid graph and Union-Find to avoid
+        cycles, producing a perfect maze.
+
         Args:
             entry: Entry cell coordinates.
             exit_: Exit cell coordinates.
-
-        Returns:
-            Generated maze structure.
-
-        Raises:
-            NotImplementedError: Skeleton placeholder.
         """
         self._entry = entry
         self._exit = exit_
@@ -295,8 +320,31 @@ class MazeGenerator:
             )
         return neighbors
 
+    def get_reachable_neighbors(
+        self,
+        cell: Cell,
+    ) -> list[tuple[Cell, WallBits]]:
+        """Get neighboring cells reachable from ``cell``.
+
+        A reachable neighbor is adjacent and separated by no wall in the
+        corresponding direction.
+
+        Args:
+            cell: The source cell.
+
+        Returns:
+            List of (neighbor, direction) that can be traversed.
+        """
+        reachable_neighbors: list[tuple[Cell, WallBits]] = []
+
+        for neighbor, direction in self.get_neighbors(cell):
+            if not cell.has_wall(direction):
+                reachable_neighbors.append((neighbor, direction))
+
+        return reachable_neighbors
+
     def initialize_maze_grid(self) -> None:
-        """Initialize the maze grid for generation."""
+        """Initialize maze cells and Union-Find state before generation."""
         self._maze = self._create_empty_grid()
 
         total_cells = self.params.width * self.params.height
@@ -312,13 +360,153 @@ class MazeGenerator:
         if self._exit:
             self._maze[self._exit[1]][self._exit[0]].is_exit = True
 
+    def _reset_search_state(self) -> None:
+        """Reset pathfinding and rendering flags on every cell."""
+        for row in self._maze:
+            for cell in row:
+                cell.visited = False
+                cell.distance = -1
+                cell.is_on_path = False
+
     def shortest_path(self) -> str:
-        """Return the shortest valid path from entry to exit (N/E/S/W).
+        """Compute and return the shortest path from entry to exit.
+
+        Returns:
+            Path encoded as a string of directions (``N/E/S/W``).
 
         Raises:
-            NotImplementedError: Skeleton placeholder.
+            ValueError: If maze or endpoints are not initialized, or if no
+                path exists.
         """
-        raise NotImplementedError("Path computation is not implemented yet.")
+        start, goal, came_from = self._run_lee_search()
+        directions = self._reconstruct_directions(start, goal, came_from)
+        return self._store_solution(directions)
+
+    def _run_lee_search(
+        self,
+    ) -> tuple[Cell, Cell, dict[Coordinate, tuple[Coordinate, WallBits]]]:
+        """Run Lee's algorithm (BFS) and return traversal data.
+
+        Returns:
+            Tuple ``(start, goal, came_from)`` where ``came_from`` maps a
+            cell coordinate to ``(previous_coordinate, direction_used)``.
+
+        Uses Lee's algorithm (BFS on unit-weight edges).
+
+        Raises:
+            ValueError: If maze or endpoints are not initialized, or if no
+                path exists.
+        """
+        if not self._maze:
+            raise ValueError("Maze is not generated yet.")
+        if self._entry is None or self._exit is None:
+            raise ValueError("Entry/exit coordinates are not defined.")
+
+        entry_col, entry_row = self._entry
+        exit_col, exit_row = self._exit
+
+        start = self._maze[entry_row][entry_col]
+        goal = self._maze[exit_row][exit_col]
+
+        self._reset_search_state()
+
+        queue = deque([start])
+        start.visited = True
+        start.distance = 0
+
+        came_from: dict[Coordinate, tuple[Coordinate, WallBits]] = {}
+
+        while queue:
+            current = queue.popleft()
+            if current is goal:
+                break
+
+            for neighbor, direction in self.get_reachable_neighbors(current):
+                if not neighbor.visited:
+                    neighbor.visited = True
+                    neighbor.distance = current.distance + 1
+                    queue.append(neighbor)
+                    came_from[(neighbor.col, neighbor.row)] = (
+                        (current.col, current.row),
+                        direction,
+                    )
+
+        if not goal.visited:
+            raise ValueError("No path found from entry to exit.")
+
+        return start, goal, came_from
+
+    def _reconstruct_directions(
+        self,
+        start: Cell,
+        goal: Cell,
+        came_from: dict[Coordinate, tuple[Coordinate, WallBits]],
+    ) -> list[WallBits]:
+        """Reconstruct path directions from the BFS provenance map.
+
+        Args:
+            start: Entry cell.
+            goal: Exit cell.
+            came_from: Mapping produced by BFS from child coordinate to
+                ``(parent coordinate, direction used from parent)``.
+
+        Returns:
+            Ordered list of directions from entry to exit.
+        """
+        path_directions: list[WallBits] = []
+        cursor = (goal.col, goal.row)
+        origin = (start.col, start.row)
+
+        while cursor != origin:
+            previous, direction = came_from[cursor]
+            path_directions.append(direction)
+            cursor = previous
+
+        path_directions.reverse()
+        return path_directions
+
+    def _store_solution(self, directions: list[WallBits]) -> str:
+        """Serialize and persist the current solution path.
+
+        Marks cells on the solution path through ``is_on_path`` and stores
+        the serialized direction string in ``_solution``.
+
+        Args:
+            directions: Ordered list of directions from entry to exit.
+
+        Returns:
+            Solution encoded as a string of directions (``N/E/S/W``).
+        """
+        direction_to_char = {
+            WallBits.NORTH: "N",
+            WallBits.EAST: "E",
+            WallBits.SOUTH: "S",
+            WallBits.WEST: "W",
+        }
+
+        if self._entry is not None:
+            entry_col, entry_row = self._entry
+            current = self._maze[entry_row][entry_col]
+            current.is_on_path = True
+
+            offsets = {
+                WallBits.NORTH: (0, -1),
+                WallBits.EAST: (1, 0),
+                WallBits.SOUTH: (0, 1),
+                WallBits.WEST: (-1, 0),
+            }
+
+            for direction in directions:
+                col_delta, row_delta = offsets[direction]
+                next_col = current.col + col_delta
+                next_row = current.row + row_delta
+                current = self._maze[next_row][next_col]
+                current.is_on_path = True
+
+        self._solution = "".join(
+            direction_to_char[direction] for direction in directions
+        )
+        return self._solution
 
     def get_structure(self) -> MazeGrid:
         """Access the generated maze structure.

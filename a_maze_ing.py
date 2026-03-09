@@ -48,6 +48,31 @@ def parse_config(config_path: Path) -> dict[str, int | str | bool]:
         raise ValueError(f"Invalid config file format: {e}") from e
 
 
+def save_output_file(
+    output_file: str,
+    hex_grid: list[list[str]],
+    entry: tuple[int, int],
+    exit_: tuple[int, int],
+    shortest_path: str,
+) -> None:
+    """Write maze output file in subject format.
+
+    Args:
+        output_file: Output file path.
+        hex_grid: Maze grid encoded as hexadecimal characters.
+        entry: Entry coordinates as ``(x, y)``.
+        exit_: Exit coordinates as ``(x, y)``.
+        shortest_path: Shortest path encoded with ``N/E/S/W``.
+    """
+    with open(output_file, "w") as output_stream:
+        for row in hex_grid:
+            output_stream.write("".join(row) + "\n")
+        output_stream.write("\n")
+        output_stream.write(f"{entry[0]},{entry[1]}\n")
+        output_stream.write(f"{exit_[0]},{exit_[1]}\n")
+        output_stream.write(f"{shortest_path}\n")
+
+
 def main() -> int:
     """CLI entry point for `python3 a_maze_ing.py config.txt`.
 
@@ -67,24 +92,38 @@ def main() -> int:
         return 1
 
     try:
-        generator = MazeGenerator(
+        maze_generator = MazeGenerator(
             width=int(config["WIDTH"]),
             height=int(config["HEIGHT"]),
             seed=int(config["SEED"]),
             perfect=bool(config["PERFECT"]),
         )
-        print(f"Maze initialized: {config['WIDTH']}x{config['HEIGHT']}")
+        print(f"Maze ready: {config['WIDTH']}x{config['HEIGHT']}")
         entry: tuple[int, int] = config["ENTRY"]  # type: ignore
         exit_: tuple[int, int] = config["EXIT"]  # type: ignore
-        generator.generate(entry=entry, exit_=exit_)
-        print("Maze generated successfully.")
-        # hex_grid = generator.get_hex_grid()
-        # binary_grid = generator.get_binary_grid()
-        # maze = generator.get_structure()
-        print("Generated Maze:")
+        maze_generator.generate(entry=entry, exit_=exit_)
+        shortest_path = maze_generator.shortest_path()
+        print("Maze generation complete.")
+        hex_grid = maze_generator.get_hex_grid()
+        try:
+            save_output_file(
+                output_file=str(config["OUTPUT_FILE"]),
+                hex_grid=hex_grid,
+                entry=entry,
+                exit_=exit_,
+                shortest_path=shortest_path,
+            )
+        except OSError as e:
+            print(f"Error writing output file: {e}", file=sys.stderr)
+            return 1
+        print(f"Maze saved to {config['OUTPUT_FILE']}")
+        # binary_grid = maze_generator.get_binary_grid()
+        # maze = maze_generator.get_structure()
+        print("Maze:")
         # print_grid(hex_grid)
         # print_grid(binary_grid)
-        MazeApp(generator).run()
+        print(shortest_path)
+        MazeApp(maze_generator).run()
 
         return 0
     except ValueError as e:
