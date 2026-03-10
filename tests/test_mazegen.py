@@ -82,7 +82,9 @@ def test_single_cell_maze_path() -> None:
     assert cell.is_on_path
 
 
-def test_logo_not_placed_when_maze_too_small(capsys) -> None:
+def test_logo_not_placed_when_maze_too_small(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """Verify error message when maze is too small for the 42 logo."""
     # Logo requires 7x5, test with smaller maze
     generator = MazeGenerator(width=5, height=4, seed=42, perfect=True)

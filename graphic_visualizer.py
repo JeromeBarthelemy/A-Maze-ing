@@ -7,16 +7,22 @@ This approach is ultra-stable, modular, and perfectly preserves the V1 look.
 from typing import Any, Iterator
 
 from rich.text import Text
-from textual.css.query import NoMatches
-from textual.app import App, ComposeResult
-from textual.reactive import reactive
-from textual.widgets import Footer, Static, Header
-from textual.containers import Container, Grid
+from textual.app import App, ComposeResult  # type: ignore[import-not-found]
+from textual.reactive import reactive  # type: ignore[import-not-found]
+from textual.widgets import (  # type: ignore[import-not-found]
+    Footer,
+    Static,
+    Header,
+)
+from textual.containers import (  # type: ignore[import-not-found]
+    Container,
+    Grid,
+)
 
 from mazegen import MazeGenerator, WallBits, Cell
 
 
-class MazeCell(Static):
+class MazeCell(Static):  # type: ignore[misc]
     """A 'Super-Unit' widget representing a single maze cell and its walls."""
 
     def __init__(
@@ -64,8 +70,8 @@ class MazeCell(Static):
         if show_path:
             path_directions = {
                 direction
-                for neighbor, direction in self.maze_gen.get_reachable_neighbors(
-                    self.cell
+                for neighbor, direction in (
+                    self.maze_gen.get_reachable_neighbors(self.cell)
                 )
                 if neighbor.is_on_path
             }
@@ -119,7 +125,7 @@ class MazeCell(Static):
         return Text("\n").join(lines)
 
 
-class MazeApp(App[None]):
+class MazeApp(App[None]):  # type: ignore[misc]
     """Textual app using stable Super-Unit MazeCell widgets."""
 
     show_path = reactive(True)
@@ -208,7 +214,8 @@ class MazeApp(App[None]):
 
         var_name = color_value[1:]
         css_vars = self.get_css_variables()
-        return css_vars.get(var_name, "white")
+        resolved = css_vars.get(var_name, "white")
+        return str(resolved)
 
     def _resolved_palette(self) -> dict[str, str]:
         """Return palette with all theme vars resolved to concrete colors."""
@@ -277,10 +284,10 @@ class MazeApp(App[None]):
 
     def refresh_maze_view(self) -> None:
         """Rebuild and refresh the maze grid widgets from generator state."""
-        try:
-            grid = self.query_one("#maze-grid")
-        except NoMatches:
+        grid_nodes = list(self.query("#maze-grid"))
+        if not grid_nodes:
             return
+        grid = grid_nodes[0]
         grid.remove_children()
         grid.mount(*self._generate_maze_cells())
 
@@ -317,12 +324,13 @@ class MazeApp(App[None]):
         if not theme_names:
             return
 
+        current_theme = str(getattr(self, "theme", ""))
         try:
-            index = theme_names.index(self.theme)
+            index = theme_names.index(current_theme)
         except ValueError:
             index = -1
 
-        self.theme = theme_names[(index + 1) % len(theme_names)]
+        setattr(self, "theme", theme_names[(index + 1) % len(theme_names)])
         if self.is_mounted:
             self.refresh_maze_view()
 
