@@ -114,7 +114,29 @@ class MazeCell(Static):
         if self.is_last_col and not self.cell.has_wall(WallBits.EAST):
             color_grid[1][3] = color_grid[2][3] = empty_color
 
-        # 5. Build Rich Text (each unit is 2 chars wide)
+        # 5. Remove "Pillars" at (0,0) if unconnected
+        # The corner at (0,0) is a wall by default. We remove it if no walls connect to it.
+        pillar_connected = self.cell.has_wall(
+            WallBits.NORTH
+        ) or self.cell.has_wall(WallBits.WEST)
+        if not pillar_connected:
+            r, c = self.cell.row, self.cell.col
+            grid = self.maze_gen.get_structure()
+            # Check North neighbor for West wall
+            if r > 0 and grid[r - 1][c].has_wall(WallBits.WEST):
+                pillar_connected = True
+            # Check West neighbor for North wall
+            if (
+                not pillar_connected
+                and c > 0
+                and grid[r][c - 1].has_wall(WallBits.NORTH)
+            ):
+                pillar_connected = True
+
+        if not pillar_connected:
+            color_grid[0][0] = empty_color
+
+        # 6. Build Rich Text (each unit is 2 chars wide)
         lines = []
         for r in range(rows_count):
             line = Text()
