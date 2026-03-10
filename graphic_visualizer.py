@@ -168,6 +168,9 @@ class MazeApp(App[None]):
 
     EXCLUDED_THEMES: tuple[str, ...] = ("textual-ansi",)
 
+    # Debug flag: randomize entry/exit on regenerate (change in source only)
+    RANDOM_IO: bool = True
+
     CSS = """
     #maze-container {
         align: center middle;
@@ -293,21 +296,26 @@ class MazeApp(App[None]):
 
     def action_regenerate(self) -> None:
         """Re-generate the maze and refresh the view."""
-        entry = self.maze_gen._entry
-        exit_ = self.maze_gen._exit
-        if entry is None or exit_ is None:
-            return
+        # 1. Determine entry/exit positions
+        if self.RANDOM_IO:
+            entry, exit_ = self.maze_gen.random_entry_exit()
+        else:
+            stored_entry = self.maze_gen._entry
+            stored_exit = self.maze_gen._exit
+            if stored_entry is None or stored_exit is None:
+                return
+            entry, exit_ = stored_entry, stored_exit
 
-        # 1. Generate new maze data
+        # 2. Generate new maze data
         self.maze_gen.generate(entry=entry, exit_=exit_)
 
-        # 2. Re-calculate the shortest path for the new maze
+        # 3. Re-calculate the shortest path for the new maze
         try:
             self.maze_gen.shortest_path()
         except ValueError:
             pass  # No path found, that's fine
 
-        # 3. Trigger UI refresh via reactive state.
+        # 4. Trigger UI refresh via reactive state.
         self.maze_revision += 1
 
     def action_toggle_path(self) -> None:

@@ -285,9 +285,54 @@ class MazeGenerator:
             True if the maze can fit the logo, False otherwise.
         """
         return (
-            self.params.width >= LOGO_WIDTH
-            and self.params.height >= LOGO_HEIGHT
+            self.params.width > LOGO_WIDTH
+            and self.params.height > LOGO_HEIGHT
         )
+
+    def _is_in_logo(self, x: int, y: int) -> bool:
+        """Check if a coordinate falls on a logo cell.
+
+        Args:
+            x: Column coordinate.
+            y: Row coordinate.
+
+        Returns:
+            True if the cell is part of the logo pattern.
+        """
+        if not self._can_fit_logo():
+            return False
+
+        logo_start_col = (self.params.width - LOGO_WIDTH) // 2
+        logo_start_row = (self.params.height - LOGO_HEIGHT) // 2
+
+        rel_col = x - logo_start_col
+        rel_row = y - logo_start_row
+
+        if 0 <= rel_col < LOGO_WIDTH and 0 <= rel_row < LOGO_HEIGHT:
+            return LOGO_42_PATTERN[rel_row][rel_col] == 1
+        return False
+
+    def random_entry_exit(self) -> tuple[Coordinate, Coordinate]:
+        """Generate random valid entry and exit positions.
+
+        Positions are guaranteed to be different and not inside the logo.
+
+        Returns:
+            Tuple of (entry, exit) coordinates.
+        """
+
+        valid_positions: list[Coordinate] = [
+            (x, y)
+            for x in range(self.params.width)
+            for y in range(self.params.height)
+            if not self._is_in_logo(x, y)
+        ]
+
+        if len(valid_positions) < 2:
+            raise ValueError("Not enough valid positions for entry and exit")
+
+        entry, exit_ = random.sample(valid_positions, 2)
+        return entry, exit_
 
     def _place_logo_42(self) -> bool:
         """Place the 42 logo in the center of the maze.
