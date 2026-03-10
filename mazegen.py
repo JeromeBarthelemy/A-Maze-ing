@@ -17,7 +17,20 @@ from collections import deque
 from dataclasses import dataclass
 from enum import IntFlag
 import random
+import sys
 from typing import Optional
+
+# Logo "42" pattern (5 rows x 7 columns)
+# 1 = logo cell (closed), 0 = normal maze cell
+LOGO_42_PATTERN = [
+    [1, 0, 0, 0, 1, 1, 1],  # row 0
+    [1, 0, 0, 0, 0, 0, 1],  # row 1
+    [1, 1, 1, 0, 1, 1, 1],  # row 2
+    [0, 0, 1, 0, 1, 0, 0],  # row 3
+    [0, 0, 1, 0, 1, 1, 1],  # row 4
+]
+LOGO_HEIGHT = 5
+LOGO_WIDTH = 7
 
 
 class WallBits(IntFlag):
@@ -160,6 +173,7 @@ class MazeGenerator:
             seed=seed,
             perfect=perfect,
         )
+        self._show_logo = True
         random.seed(self.params.seed)
         self._maze: MazeGrid = []
         self._entry: Optional[Coordinate] = None
@@ -167,6 +181,8 @@ class MazeGenerator:
         self._solution: Optional[str] = None
         self._parent: list[int] = []
         self._size: list[int] = []
+        self._logo_placed: bool = False
+        self._logo_cell_count: int = 0
 
     def _cell_index(self, row: int, col: int) -> int:
         """Convert grid coordinates into a Union-Find index.
@@ -235,6 +251,8 @@ class MazeGenerator:
     ) -> list[tuple[Cell, Cell, WallBits]]:
         """Build all unique neighbor edges for Kruskal generation.
 
+        Excludes edges that touch logo pattern cells to keep them closed.
+
         Returns:
             List of (cell, neighbor, direction_from_cell_to_neighbor).
         """
@@ -244,15 +262,77 @@ class MazeGenerator:
             for col in range(self.params.width):
                 cell = self._maze[row][col]
 
+                # Skip edges involving logo pattern cells
+                if cell.is_pattern:
+                    continue
+
                 if col < self.params.width - 1:
                     east = self._maze[row][col + 1]
-                    edges.append((cell, east, WallBits.EAST))
+                    if not east.is_pattern:
+                        edges.append((cell, east, WallBits.EAST))
 
                 if row < self.params.height - 1:
                     south = self._maze[row + 1][col]
-                    edges.append((cell, south, WallBits.SOUTH))
+                    if not south.is_pattern:
+                        edges.append((cell, south, WallBits.SOUTH))
 
         return edges
+
+    def _can_fit_logo(self) -> bool:
+        """Check if the maze is large enough to contain the 42 logo.
+
+        Returns:
+            True if the maze can fit the logo, False otherwise.
+        """
+        return (
+            self.params.width >= LOGO_WIDTH
+            and self.params.height >= LOGO_HEIGHT
+        )
+
+    def _place_logo_42(self) -> bool:
+        """Place the 42 logo in the center of the maze.
+
+        Marks logo cells as pattern cells with all walls closed and
+        unifies them in the Union-Find structure.
+
+        Returns:
+            True if the logo was placed, False if maze is too small.
+        """
+        if not self._can_fit_logo():
+            print(
+                f"Error: Maze too small for 42 logo "
+                f"(minimum size: {LOGO_WIDTH}x{LOGO_HEIGHT}, "
+                f"current: {self.params.width}x{self.params.height})",
+                file=sys.stderr,
+            )
+            return False
+
+        # Calculate center position for the logo
+        start_col = (self.params.width - LOGO_WIDTH) // 2
+        start_row = (self.params.height - LOGO_HEIGHT) // 2
+
+        # Collect all pattern cells
+        pattern_cells: list[Cell] = []
+
+        for row_offset, pattern_row in enumerate(LOGO_42_PATTERN):
+            for col_offset, is_logo in enumerate(pattern_row):
+                if is_logo:
+                    cell = self._maze[start_row + row_offset][
+                        start_col + col_offset
+                    ]
+                    cell.is_pattern = True
+                    # Keep all walls (cell stays closed)
+                    cell.walls = (
+                        WallBits.NORTH
+                        | WallBits.EAST
+                        | WallBits.SOUTH
+                        | WallBits.WEST
+                    )
+                    pattern_cells.append(cell)
+
+        self._logo_placed = True
+        self._logo_cell_count = len(pattern_cells)
+        return True
 
     def generate(self, entry: Coordinate, exit_: Coordinate) -> None:
         """Generate a maze from entry to exit.
@@ -268,11 +348,19 @@ class MazeGenerator:
         self._exit = exit_
         self.initialize_maze_grid()
 
+        # Place 42 logo if requested
+        if self._show_logo:
+            self._place_logo_42()
+
         edges = self._build_candidate_edges()
         random.shuffle(edges)
 
         opened_passages = 0
-        target_passages = self.params.width * self.params.height - 1
+        # Exclude logo cells from the target count (they form isolated blocks)
+        active_cells = (
+            self.params.width * self.params.height - self._logo_cell_count
+        )
+        target_passages = active_cells - 1
 
         for cell, neighbor, direction in edges:
             cell_index = self._cell_index(cell.row, cell.col)
