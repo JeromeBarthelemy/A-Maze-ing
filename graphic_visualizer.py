@@ -7,14 +7,14 @@ This approach is ultra-stable, modular, and perfectly preserves the V1 look.
 from typing import Any, Iterator
 
 from rich.text import Text
-from textual.app import App, ComposeResult  # type: ignore[import-not-found]
-from textual.reactive import reactive  # type: ignore[import-not-found]
-from textual.widgets import (  # type: ignore[import-not-found]
+from textual.app import App, ComposeResult
+from textual.reactive import reactive
+from textual.widgets import (
     Footer,
     Static,
     Header,
 )
-from textual.containers import (  # type: ignore[import-not-found]
+from textual.containers import (
     Container,
     Grid,
 )
@@ -22,7 +22,7 @@ from textual.containers import (  # type: ignore[import-not-found]
 from mazegen import MazeGenerator, WallBits, Cell
 
 
-class MazeCell(Static):  # type: ignore[misc]
+class MazeCell(Static):
     """A 'Super-Unit' widget representing a single maze cell and its walls."""
 
     def __init__(
@@ -125,7 +125,7 @@ class MazeCell(Static):  # type: ignore[misc]
         return Text("\n").join(lines)
 
 
-class MazeApp(App[None]):  # type: ignore[misc]
+class MazeApp(App[None]):
     """Textual app using stable Super-Unit MazeCell widgets."""
 
     show_path = reactive(True)

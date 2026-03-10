@@ -190,6 +190,8 @@ EESSENNW...
 - **Seed/reproducibility strategy:** Python `random.seed(SEED)`
 - **Perfect maze behavior:** exactly `W*H - 1` passages opened, no cycles,
   all cells connected (single unique path between two cells)
+- **42 logo behavior:** logo placement is always enabled; when maze size is
+  at least `7x5`, closed cells forming the `42` pattern are injected.
 
 ## Visual Representation
 - **Mode implemented:** Textual TUI (`graphic_visualizer.py`)
@@ -200,7 +202,11 @@ EESSENNW...
   - optional dedicated color for the `42` pattern (`is_pattern`)
 - **Controls:**
   - `q`: quit
-  - `d`: toggle dark mode
+  - `p`: toggle shortest path visibility
+  - `c`: cycle Textual themes
+  - `w`: cycle wall color
+  - `f`: cycle `42` pattern color
+  - `r`: regenerate maze
 
 ## Reusability (Mandatory)
 
@@ -219,7 +225,7 @@ make package
 Or manually with uv:
 ```bash
 uv sync
-uv run python -m build
+uv run --with setuptools --with wheel python -m build --no-isolation
 ```
 
 Generated files will be available in `dist/` with names like:
@@ -240,7 +246,7 @@ path = generator.shortest_path()
 ```
 
 ### Exposed API checklist
-- Instantiate with custom parameters (size, seed, mode)
+- Instantiate with custom parameters (size, seed, perfect mode)
 - Generate maze
 - Access internal structure
 - Access at least one solution path
