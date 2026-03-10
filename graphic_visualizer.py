@@ -169,7 +169,7 @@ class MazeApp(App[None]):
     EXCLUDED_THEMES: tuple[str, ...] = ("textual-ansi",)
 
     # Debug flag: randomize entry/exit on regenerate (change in source only)
-    RANDOM_IO: bool = True
+    RANDOM_IO: bool = False
 
     CSS = """
     #maze-container {

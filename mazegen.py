@@ -424,6 +424,9 @@ class MazeGenerator:
                 cell.cluster_id = self._find(
                     self._cell_index(cell.row, cell.col)
                 )
+        # If not perfect, remove extra walls to create cycles
+        if not self.params.perfect:
+            self._remove_extra_walls()
 
     def get_neighbors(self, cell: Cell) -> list[tuple[Cell, WallBits]]:
         """Get neighboring cells and their wall directions.
@@ -676,3 +679,41 @@ class MazeGenerator:
             corresponding cell.
         """
         return [[cell.to_binary() for cell in row] for row in self._maze]
+
+
+    def _remove_extra_walls(self, ratio: float = 0.10) -> None:
+        """Remove extra walls to make the maze imperfect (add cycles).
+
+        Args:
+            ratio: Fraction of eligible walls to remove (default: 10%).
+        """
+        width, height = self.params.width, self.params.height
+        candidates = []
+        for y in range(height):
+            for x in range(width):
+                cell = self._maze[y][x]
+                # Skip logo cells
+                if cell.is_pattern:
+                    continue
+                # Try to remove east wall
+                if x < width - 1:
+                    neighbor = self._maze[y][x + 1]
+                    if not neighbor.is_pattern and cell.has_wall(WallBits.EAST):
+                        # Only consider if wall exists (should be open in perfect maze, but may be closed in logo)
+                        if not cell.has_wall(WallBits.EAST) and not neighbor.has_wall(WallBits.WEST):
+                            continue
+                        # Only add if not on border
+                        candidates.append((cell, neighbor, WallBits.EAST))
+                # Try to remove south wall
+                if y < height - 1:
+                    neighbor = self._maze[y + 1][x]
+                    if not neighbor.is_pattern and cell.has_wall(WallBits.SOUTH):
+                        if not cell.has_wall(WallBits.SOUTH) and not neighbor.has_wall(WallBits.NORTH):
+                            continue
+                        candidates.append((cell, neighbor, WallBits.SOUTH))
+        n_remove = max(1, int(len(candidates) * ratio))
+        random.shuffle(candidates)
+        for cell, neighbor, direction in candidates[:n_remove]:
+            # Remove wall in both cells
+            cell.remove_wall(direction)
+            neighbor.remove_wall(direction.opposite())
