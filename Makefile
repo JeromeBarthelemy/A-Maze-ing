@@ -55,6 +55,6 @@ lint-strict: check-uv
 
 package: check-uv
 	uv sync --all-extras
-	uv run python -m build
+	uv run --with setuptools --with wheel python -m build --no-isolation
 	cp -f dist/mazegen-*.whl . || true
 	cp -f dist/mazegen-*.tar.gz . || true

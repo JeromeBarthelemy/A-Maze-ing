@@ -42,6 +42,14 @@ exclude = [
     "graphic_visualizer"
 ]
 
+[[tool.mypy.overrides]]
+module = ["textual.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["graphic_visualizer"]
+disable_error_code = ["misc"]
+
 [tool.black]
 line-length = 79
 extend-exclude = ".venv"
