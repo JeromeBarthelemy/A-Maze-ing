@@ -233,6 +233,7 @@ class MazeApp(App[None]):
         """
         super().__init__(**kwargs)
         self.maze_gen = maze_gen
+        self._cell_widgets: list[MazeCell] = []
         # Avoid reading a reactive value in __init__, which can trigger
         # watchers before the widget tree exists.
         self.palette = self.PALETTE.copy()
@@ -297,7 +298,8 @@ class MazeApp(App[None]):
 
         with Container(id="maze-container"):
             with Grid(id="maze-grid"):
-                yield from self._generate_maze_cells()
+                self._cell_widgets = list(self._generate_maze_cells())
+                yield from self._cell_widgets
         yield Footer()
 
     def watch_is_perfect(self, _: bool, __: bool) -> None:
@@ -340,13 +342,20 @@ class MazeApp(App[None]):
         self._is_mounted = True
 
     def refresh_maze_view(self) -> None:
-        """Rebuild and refresh the maze grid widgets from generator state."""
-        grid_nodes = list(self.query("#maze-grid"))
-        if not grid_nodes:
+        """Update and refresh the maze grid widgets from generator state."""
+        if not self._cell_widgets:
             return
-        grid = grid_nodes[0]
-        grid.remove_children()
-        grid.mount(*self._generate_maze_cells())
+
+        resolved_palette = self._resolved_palette()
+        maze_grid_data = self.maze_gen.get_structure()
+
+        # Flatten the 2D grid data to iterate easily
+        flat_maze_data = [cell for row in maze_grid_data for cell in row]
+
+        for i, widget in enumerate(self._cell_widgets):
+            widget.cell = flat_maze_data[i]
+            widget.palette = resolved_palette
+            widget.refresh()
 
     def action_regenerate(self) -> None:
         """Re-generate the maze and refresh the view."""
