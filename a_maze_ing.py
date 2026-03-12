@@ -97,6 +97,7 @@ def main() -> int:
             height=int(config["HEIGHT"]),
             seed=int(config["SEED"]),
             perfect=bool(config["PERFECT"]),
+            ratio=float(config.get("RATIO", 0.10)),
         )
         print(f"Maze ready: {config['WIDTH']}x{config['HEIGHT']}")
         entry: tuple[int, int] = config["ENTRY"]  # type: ignore

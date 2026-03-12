@@ -137,6 +137,7 @@ class GeneratorParams:
     height: int
     seed: Optional[int] = None
     perfect: bool = True
+    ratio: float = 0.1
 
 
 class MazeGenerator:
@@ -154,6 +155,7 @@ class MazeGenerator:
         height: int,
         seed: Optional[int] = None,
         perfect: bool = True,
+        ratio: float = 0.1,
     ) -> None:
         """Initialize generator parameters and internal placeholders.
 
@@ -162,6 +164,8 @@ class MazeGenerator:
             height: Maze height (number of rows).
             seed: Random seed for generation (None for random).
             perfect: True for perfect maze, False for imperfect.
+            ratio: Ratio of candidates walls to remove when creating
+                   non-perfect mazes (0.0 to 1.0).
 
         Initializes:
             Internal maze storage, entry/exit coordinates, solution cache,
@@ -172,6 +176,7 @@ class MazeGenerator:
             height=height,
             seed=seed,
             perfect=perfect,
+            ratio=ratio,
         )
         self._show_logo = True
         random.seed(self.params.seed)
@@ -285,8 +290,7 @@ class MazeGenerator:
             True if the maze can fit the logo, False otherwise.
         """
         return (
-            self.params.width > LOGO_WIDTH
-            and self.params.height > LOGO_HEIGHT
+            self.params.width > LOGO_WIDTH and self.params.height > LOGO_HEIGHT
         )
 
     def _is_in_logo(self, x: int, y: int) -> bool:
@@ -424,9 +428,79 @@ class MazeGenerator:
                 cell.cluster_id = self._find(
                     self._cell_index(cell.row, cell.col)
                 )
+
+        # Cache the perfect maze state in case we want to adjust imperfection
+        # without redesigning the path
+        import copy
+        self._maze_cache = copy.deepcopy(self._maze)
+
         # If not perfect, remove extra walls to create cycles
         if not self.params.perfect:
             self._remove_extra_walls()
+
+    def regenerate_imperfect(self, ratio: float) -> None:
+        """Apply a new imperfection ratio to the existing perfect maze
+           structure incrementally.
+
+        This prevents regenerating a completely new base maze when only
+        adjusting the frequency of extra cycles via the UI. Reverting
+        to a previous ratio restores the exact state that was generated
+        before.
+
+        Args:
+            ratio: New ratio of extra walls to remove.
+        """
+        import copy
+        self.params = self.params.__class__(
+            width=self.params.width,
+            height=self.params.height,
+            seed=self.params.seed,
+            perfect=self.params.perfect,
+            ratio=ratio,
+        )
+
+        if not hasattr(self, "_ratio_cache"):
+            self._ratio_cache = {}
+
+        # Clear solution since walls change
+        self._solution = None
+
+        # If perfect mode, just restore perfect cache
+        if self.params.perfect:
+            if hasattr(self, "_maze_cache") and self._maze_cache:
+                self._maze = copy.deepcopy(self._maze_cache)
+            return
+
+        # Try to restore exact state from ratio cache
+        ratio_key = round(ratio, 2)
+        if ratio_key in self._ratio_cache:
+            self._maze = copy.deepcopy(self._ratio_cache[ratio_key])
+            return
+
+        # Otherwise find the closest smaller ratio state to build incrementally
+        closest_smaller_ratio = None
+        for r in sorted(self._ratio_cache.keys(), reverse=True):
+            if r < ratio_key:
+                closest_smaller_ratio = r
+                break
+
+        if closest_smaller_ratio is not None:
+            self._maze = copy.deepcopy(
+                self._ratio_cache[closest_smaller_ratio]
+                )
+        elif hasattr(self, "_maze_cache") and self._maze_cache:
+            self._maze = copy.deepcopy(self._maze_cache)
+
+        # Now remove walls up to the new ratio difference
+        # Actually _remove_extra_walls currently tries to remove up to
+        # max(1, int(total * ratio)) walls.
+        # Since it keeps skipping already removed walls, calling it with the
+        # absolute target ratio on a partially carved maze will naturally
+        # just carve the remaining difference!
+        self._remove_extra_walls(target_ratio=ratio_key)
+
+        # Save to cache
+        self._ratio_cache[ratio_key] = copy.deepcopy(self._maze)
 
     def get_neighbors(self, cell: Cell) -> list[tuple[Cell, WallBits]]:
         """Get neighboring cells and their wall directions.
@@ -478,6 +552,85 @@ class MazeGenerator:
                 reachable_neighbors.append((neighbor, direction))
 
         return reachable_neighbors
+
+    def _is_creating_large_room(
+        self, cell: Cell, direction: WallBits
+    ) -> bool:
+        """Check if removing a wall creates a room larger than 2x3.
+        This prevents creating fully open areas of 3x3, 4x2, or 2x4.
+        """
+        r, c = cell.row, cell.col
+
+        if direction == WallBits.EAST:
+            r1, c1 = r, c
+            r2, c2 = r, c + 1
+        elif direction == WallBits.SOUTH:
+            r1, c1 = r, c
+            r2, c2 = r + 1, c
+        else:
+            return False
+
+        test_wall = (r1, c1, direction)
+
+        for y_offset in range(-2, 1):
+            for x_offset in range(-2, 1):
+                if (r1 >= r + y_offset and r1 < r + y_offset + 3 and
+                        c1 >= c + x_offset and c1 < c + x_offset + 3 and
+                        r2 >= r + y_offset and r2 < r + y_offset + 3 and
+                        c2 >= c + x_offset and c2 < c + x_offset + 3):
+                    if self._is_area_open(r + y_offset, c + x_offset,
+                                          3, 3, test_wall):
+                        return True
+
+        for y_offset in range(-1, 1):
+            for x_offset in range(-3, 1):
+                if (r1 >= r + y_offset and r1 < r + y_offset + 2 and
+                        c1 >= c + x_offset and c1 < c + x_offset + 4 and
+                        r2 >= r + y_offset and r2 < r + y_offset + 2 and
+                        c2 >= c + x_offset and c2 < c + x_offset + 4):
+                    if self._is_area_open(r + y_offset, c + x_offset,
+                                          4, 2, test_wall):
+                        return True
+
+        for y_offset in range(-3, 1):
+            for x_offset in range(-1, 1):
+                if (r1 >= r + y_offset and r1 < r + y_offset + 4 and
+                        c1 >= c + x_offset and c1 < c + x_offset + 2 and
+                        r2 >= r + y_offset and r2 < r + y_offset + 4 and
+                        c2 >= c + x_offset and c2 < c + x_offset + 2):
+                    if self._is_area_open(r + y_offset, c + x_offset,
+                                          2, 4, test_wall):
+                        return True
+
+        return False
+
+    def _is_area_open(
+        self, start_r: int, start_c: int, width: int, height: int,
+        test_wall: tuple[int, int, WallBits]
+    ) -> bool:
+        """Check if a specific rectangular area in the maze is fully open."""
+        if start_r < 0 or start_c < 0:
+            return False
+        if start_r + height > self.params.height:
+            return False
+        if start_c + width > self.params.width:
+            return False
+
+        for y in range(start_r, start_r + height):
+            for x in range(start_c, start_c + width - 1):
+                if test_wall == (y, x, WallBits.EAST):
+                    continue
+                if self._maze[y][x].has_wall(WallBits.EAST):
+                    return False
+
+        for y in range(start_r, start_r + height - 1):
+            for x in range(start_c, start_c + width):
+                if test_wall == (y, x, WallBits.SOUTH):
+                    continue
+                if self._maze[y][x].has_wall(WallBits.SOUTH):
+                    return False
+
+        return True
 
     def initialize_maze_grid(self) -> None:
         """Initialize maze cells and Union-Find state before generation."""
@@ -680,43 +833,94 @@ class MazeGenerator:
         """
         return [[cell.to_binary() for cell in row] for row in self._maze]
 
-    def _remove_extra_walls(self, ratio: float = 0.10) -> None:
+    def _remove_extra_walls(
+                            self,
+                            target_ratio: Optional[float] = None
+                            ) -> None:
         """Remove extra walls to make the maze imperfect (add cycles).
 
         Args:
-            ratio: Fraction of eligible walls to remove (default: 10%).
+            target_ratio: Target fraction of total eligible walls to remove.
         """
+        if target_ratio is None:
+            target_ratio = self.params.ratio
+
         width, height = self.params.width, self.params.height
+
+        # 1. Count Total Capacity of a Perfect Maze
+        # A perfect maze grid has (width - 1) * height east walls
+        #  + (height - 1) * width south walls
+        # minus any walls inside the logo pattern.
+        total_possible_removals = 0
+        current_missing_walls = 0
         candidates = []
+
         for y in range(height):
             for x in range(width):
                 cell = self._maze[y][x]
-                # Skip logo cells
                 if cell.is_pattern:
                     continue
-                # Try to remove east wall
+
                 if x < width - 1:
                     neighbor = self._maze[y][x + 1]
-                    if (not neighbor.is_pattern and
-                            cell.has_wall(WallBits.EAST)):
-                        # Only consider if wall exists
-                        if (not cell.has_wall(WallBits.EAST) and
-                                not neighbor.has_wall(WallBits.WEST)):
-                            continue
-                        # Only add if not on border
-                        candidates.append((cell, neighbor, WallBits.EAST))
-                # Try to remove south wall
+                    if not neighbor.is_pattern:
+                        total_possible_removals += 1
+                        if cell.has_wall(WallBits.EAST):
+                            candidates.append((cell, neighbor, WallBits.EAST))
+                        else:
+                            current_missing_walls += 1
+
                 if y < height - 1:
                     neighbor = self._maze[y + 1][x]
-                    if (not neighbor.is_pattern and
-                            cell.has_wall(WallBits.SOUTH)):
-                        if (not cell.has_wall(WallBits.SOUTH) and
-                                not neighbor.has_wall(WallBits.NORTH)):
-                            continue
-                        candidates.append((cell, neighbor, WallBits.SOUTH))
-        n_remove = max(1, int(len(candidates) * ratio))
+                    if not neighbor.is_pattern:
+                        total_possible_removals += 1
+                        if cell.has_wall(WallBits.SOUTH):
+                            candidates.append((cell, neighbor, WallBits.SOUTH))
+                        else:
+                            current_missing_walls += 1
+
+        # The TRUE initial candidates count in a perfect maze is:
+        # Total internal walls - Total passage walls already carved.
+        # total_possible_removals is the total internal walls.
+        # A simple perfect maze is a spanning tree with (W*H - 1) passages.
+        # But with the '42' logo, it's (active_cells - 1) passages.
+        active_cells = width * height - self._logo_cell_count
+        perfect_maze_passages = active_cells - 1
+
+        # Original candidates that COULD be removed in a perfect maze:
+        original_removable_walls = (total_possible_removals -
+                                    perfect_maze_passages)
+
+        if original_removable_walls <= 0:
+            return
+
+        # Target number of *extra* walls to remove based on the ratio:
+        target_extra_removals = max(1,
+                                    int(original_removable_walls *
+                                        target_ratio))
+
+        # How many *extra* walls are CURRENTLY removed?
+        # current_missing_walls = perfect_maze_passages +
+        # currently_removed_extra
+        currently_removed_extra = current_missing_walls - perfect_maze_passages
+
+        # How many more do we need to remove right now?
+        n_remove = target_extra_removals - currently_removed_extra
+
+        if n_remove <= 0:
+            return
+
         random.shuffle(candidates)
-        for cell, neighbor, direction in candidates[:n_remove]:
+
+        removed_count = 0
+        for cell, neighbor, direction in candidates:
+            if removed_count >= n_remove:
+                break
+
+            if self._is_creating_large_room(cell, direction):
+                continue
+
             # Remove wall in both cells
             cell.remove_wall(direction)
             neighbor.remove_wall(direction.opposite())
+            removed_count += 1

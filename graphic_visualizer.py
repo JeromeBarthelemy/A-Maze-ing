@@ -165,6 +165,8 @@ class MazeApp(App[None]):
         ("r", "regenerate", "Re-generate maze"),
         ("m", "toggle_perfect", "Perfect/imperfect maze"),
         ("i", "toggle_random_io", "Fixed/random entry/exit"),
+        ("up", "increase_ratio", "Increase ratio (+5%)"),
+        ("down", "decrease_ratio", "Decrease ratio (-5%)"),
     ]
 
     PALETTE: dict[str, str] = {
@@ -197,6 +199,7 @@ class MazeApp(App[None]):
     # Reactive toggles for maze generation
     is_perfect = reactive(True)
     random_io = reactive(False)
+    ratio = reactive(0.10)
 
     CSS = """
     #maze-container {
@@ -233,6 +236,8 @@ class MazeApp(App[None]):
         """
         super().__init__(**kwargs)
         self.maze_gen = maze_gen
+        self.is_perfect = self.maze_gen.params.perfect
+        self.ratio = self.maze_gen.params.ratio
         self._cell_widgets: list[MazeCell] = []
         # Avoid reading a reactive value in __init__, which can trigger
         # watchers before the widget tree exists.
@@ -286,9 +291,13 @@ class MazeApp(App[None]):
         """
         yield Header()
         # Display current mode/status below the header
-        mode = "Parfait" if self.is_perfect else "Imparfait"
-        io_mode = ("Entrées/Sorties fixes" if not self.random_io
-                   else "Entrées/Sorties aléatoires")
+        mode = ("Parfait" if self.is_perfect
+                else f"Imparfait ({int(self.ratio * 100)}%)")
+        io_mode = (
+            "Entrées/Sorties fixes"
+            if not self.random_io
+            else "Entrées/Sorties aléatoires"
+        )
         yield Static(f"[Mode] {mode} | {io_mode}", id="maze-status")
         if self.maze_gen.get_solution() is None:
             try:
@@ -318,9 +327,13 @@ class MazeApp(App[None]):
             status_widget = self.query_one("#maze-status", expect_type=Static)
         except Exception:
             return
-        mode = "Parfait" if self.is_perfect else "Imparfait"
-        io_mode = ("Entrées/Sorties fixes" if not self.random_io
-                   else "Entrées/Sorties aléatoires")
+        mode = ("Parfait" if self.is_perfect
+                else f"Imparfait ({int(self.ratio * 100)}%)")
+        io_mode = (
+            "Entrées/Sorties fixes"
+            if not self.random_io
+            else "Entrées/Sorties aléatoires"
+        )
         status_widget.update(f"[Mode] {mode} | {io_mode}")
 
     def on_mount(self) -> None:
@@ -359,34 +372,40 @@ class MazeApp(App[None]):
 
     def action_regenerate(self) -> None:
         """Re-generate the maze and refresh the view."""
-        # 1. Set perfect/imperfect mode
-        self.maze_gen.params = self.maze_gen.params.__class__(
-            width=self.maze_gen.params.width,
-            height=self.maze_gen.params.height,
-            seed=self.maze_gen.params.seed,
-            perfect=self.is_perfect,
-        )
-        # 2. Determine entry/exit positions
-        if self.random_io:
-            entry, exit_ = self.maze_gen.random_entry_exit()
-        else:
-            stored_entry = self.maze_gen._entry
-            stored_exit = self.maze_gen._exit
-            if stored_entry is None or stored_exit is None:
-                return
-            entry, exit_ = stored_entry, stored_exit
-
-        # 3. Generate new maze data
-        self.maze_gen.generate(entry=entry, exit_=exit_)
-
-        # 4. Re-calculate the shortest path for the new maze
         try:
-            self.maze_gen.shortest_path()
-        except ValueError:
-            pass  # No path found, that's fine
+            self.maze_gen.params = self.maze_gen.params.__class__(
+                width=self.maze_gen.params.width,
+                height=self.maze_gen.params.height,
+                seed=self.maze_gen.params.seed,
+                perfect=self.is_perfect,
+                ratio=self.ratio,
+            )
+            # 2. Determine entry/exit positions
+            if self.random_io:
+                entry, exit_ = self.maze_gen.random_entry_exit()
+            else:
+                stored_entry = self.maze_gen._entry
+                stored_exit = self.maze_gen._exit
+                if stored_entry is None or stored_exit is None:
+                    return
+                entry, exit_ = stored_entry, stored_exit
 
-        # 5. Trigger UI refresh via reactive state.
-        self.maze_revision += 1
+            # 3. Generate new maze data
+            self.maze_gen.generate(entry=entry, exit_=exit_)
+
+            # 4. Re-calculate the shortest path for the new maze
+            try:
+                self.maze_gen.shortest_path()
+            except ValueError:
+                pass  # No path found, that's fine
+
+            # 5. Trigger UI refresh via reactive state.
+            self.maze_revision += 1
+        except Exception as e:
+            import traceback
+            with open("/tmp/maze_error.log", "a") as f:
+                f.write(f"Error in action_regenerate: {e}\n")
+                traceback.print_exc(file=f)
 
     def action_toggle_perfect(self) -> None:
         """Toggle perfect/imperfect maze and regenerate."""
@@ -452,6 +471,29 @@ class MazeApp(App[None]):
         """Refresh maze when path visibility changes."""
         if self._is_mounted:
             self.refresh_maze_view()
+
+    def watch_ratio(self, _: float, __: float) -> None:
+        """Update UI and adjust imperfections when ratio changes."""
+        if self._is_mounted:
+            self._update_status_widget()
+            self.maze_gen.regenerate_imperfect(self.ratio)
+            try:
+                self.maze_gen.shortest_path()
+            except ValueError:
+                pass
+            self.maze_revision += 1
+
+    def action_increase_ratio(self) -> None:
+        """Increase imperfection ratio by 5% up to 100%."""
+        new_ratio = min(1.0, round(self.ratio + 0.05, 2))
+        if new_ratio != self.ratio:
+            self.ratio = new_ratio
+
+    def action_decrease_ratio(self) -> None:
+        """Decrease imperfection ratio by 5% down to 0%."""
+        new_ratio = max(0.0, round(self.ratio - 0.05, 2))
+        if new_ratio != self.ratio:
+            self.ratio = new_ratio
 
     def watch_maze_revision(self, _: int, __: int) -> None:
         """Refresh maze when a new maze generation is committed."""
