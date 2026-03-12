@@ -115,7 +115,8 @@ class MazeCell(Static):
             color_grid[1][3] = color_grid[2][3] = empty_color
 
         # 5. Remove "Pillars" at (0,0) if unconnected
-        # The corner at (0,0) is a wall by default. We remove it if no walls connect to it.
+        # The corner at (0,0) is a wall by default.
+        #  We remove it if no walls connect to it.
         pillar_connected = self.cell.has_wall(
             WallBits.NORTH
         ) or self.cell.has_wall(WallBits.WEST)
@@ -152,6 +153,7 @@ class MazeApp(App[None]):
 
     show_path = reactive(True)
     maze_revision = reactive(0)
+    _is_mounted = False
 
     TITLE = "A-Maze-ing Maze Viewer"
     BINDINGS = [
@@ -161,6 +163,8 @@ class MazeApp(App[None]):
         ("w", "cycle_wall_color", "Cycle wall color"),
         ("f", "cycle_pattern_color", "Cycle 42 color"),
         ("r", "regenerate", "Re-generate maze"),
+        ("m", "toggle_perfect", "Perfect/imperfect maze"),
+        ("i", "toggle_random_io", "Fixed/random entry/exit"),
     ]
 
     PALETTE: dict[str, str] = {
@@ -190,8 +194,9 @@ class MazeApp(App[None]):
 
     EXCLUDED_THEMES: tuple[str, ...] = ("textual-ansi",)
 
-    # Debug flag: randomize entry/exit on regenerate (change in source only)
-    RANDOM_IO: bool = False
+    # Reactive toggles for maze generation
+    is_perfect = reactive(True)
+    random_io = reactive(False)
 
     CSS = """
     #maze-container {
@@ -228,6 +233,7 @@ class MazeApp(App[None]):
         """
         super().__init__(**kwargs)
         self.maze_gen = maze_gen
+        self._cell_widgets: list[MazeCell] = []
         # Avoid reading a reactive value in __init__, which can trigger
         # watchers before the widget tree exists.
         self.palette = self.PALETTE.copy()
@@ -279,6 +285,11 @@ class MazeApp(App[None]):
             Header, centered maze grid, and footer widgets.
         """
         yield Header()
+        # Display current mode/status below the header
+        mode = "Parfait" if self.is_perfect else "Imparfait"
+        io_mode = ("Entrées/Sorties fixes" if not self.random_io
+                   else "Entrées/Sorties aléatoires")
+        yield Static(f"[Mode] {mode} | {io_mode}", id="maze-status")
         if self.maze_gen.get_solution() is None:
             try:
                 self.maze_gen.shortest_path()
@@ -287,8 +298,30 @@ class MazeApp(App[None]):
 
         with Container(id="maze-container"):
             with Grid(id="maze-grid"):
-                yield from self._generate_maze_cells()
+                self._cell_widgets = list(self._generate_maze_cells())
+                yield from self._cell_widgets
         yield Footer()
+
+    def watch_is_perfect(self, _: bool, __: bool) -> None:
+        # Update the status Static widget directly
+        if self._is_mounted:
+            self._update_status_widget()
+
+    def watch_random_io(self, _: bool, __: bool) -> None:
+        # Update the status Static widget directly
+        if self._is_mounted:
+            self._update_status_widget()
+
+    def _update_status_widget(self) -> None:
+        # Only update if the widget exists (after compose)
+        try:
+            status_widget = self.query_one("#maze-status", expect_type=Static)
+        except Exception:
+            return
+        mode = "Parfait" if self.is_perfect else "Imparfait"
+        io_mode = ("Entrées/Sorties fixes" if not self.random_io
+                   else "Entrées/Sorties aléatoires")
+        status_widget.update(f"[Mode] {mode} | {io_mode}")
 
     def on_mount(self) -> None:
         """Configure maze grid dimensions and explicit track sizes."""
@@ -306,20 +339,35 @@ class MazeApp(App[None]):
         # with 2 chars per horizontal unit.
         maze_grid.styles.width = (3 * w + 1) * 2 + 2
         maze_grid.styles.height = (3 * h + 1) + 2
+        self._is_mounted = True
 
     def refresh_maze_view(self) -> None:
-        """Rebuild and refresh the maze grid widgets from generator state."""
-        grid_nodes = list(self.query("#maze-grid"))
-        if not grid_nodes:
+        """Update and refresh the maze grid widgets from generator state."""
+        if not self._cell_widgets:
             return
-        grid = grid_nodes[0]
-        grid.remove_children()
-        grid.mount(*self._generate_maze_cells())
+
+        resolved_palette = self._resolved_palette()
+        maze_grid_data = self.maze_gen.get_structure()
+
+        # Flatten the 2D grid data to iterate easily
+        flat_maze_data = [cell for row in maze_grid_data for cell in row]
+
+        for i, widget in enumerate(self._cell_widgets):
+            widget.cell = flat_maze_data[i]
+            widget.palette = resolved_palette
+            widget.refresh()
 
     def action_regenerate(self) -> None:
         """Re-generate the maze and refresh the view."""
-        # 1. Determine entry/exit positions
-        if self.RANDOM_IO:
+        # 1. Set perfect/imperfect mode
+        self.maze_gen.params = self.maze_gen.params.__class__(
+            width=self.maze_gen.params.width,
+            height=self.maze_gen.params.height,
+            seed=self.maze_gen.params.seed,
+            perfect=self.is_perfect,
+        )
+        # 2. Determine entry/exit positions
+        if self.random_io:
             entry, exit_ = self.maze_gen.random_entry_exit()
         else:
             stored_entry = self.maze_gen._entry
@@ -328,17 +376,27 @@ class MazeApp(App[None]):
                 return
             entry, exit_ = stored_entry, stored_exit
 
-        # 2. Generate new maze data
+        # 3. Generate new maze data
         self.maze_gen.generate(entry=entry, exit_=exit_)
 
-        # 3. Re-calculate the shortest path for the new maze
+        # 4. Re-calculate the shortest path for the new maze
         try:
             self.maze_gen.shortest_path()
         except ValueError:
             pass  # No path found, that's fine
 
-        # 4. Trigger UI refresh via reactive state.
+        # 5. Trigger UI refresh via reactive state.
         self.maze_revision += 1
+
+    def action_toggle_perfect(self) -> None:
+        """Toggle perfect/imperfect maze and regenerate."""
+        self.is_perfect = not self.is_perfect
+        self.action_regenerate()
+
+    def action_toggle_random_io(self) -> None:
+        """Toggle fixed/random entry/exit and regenerate."""
+        self.random_io = not self.random_io
+        self.action_regenerate()
 
     def action_toggle_path(self) -> None:
         """Toggle solution path visibility and refresh maze cells."""
@@ -361,7 +419,7 @@ class MazeApp(App[None]):
             index = -1
 
         setattr(self, "theme", theme_names[(index + 1) % len(theme_names)])
-        if self.is_mounted:
+        if self._is_mounted:
             self.refresh_maze_view()
 
     def action_cycle_wall_color(self) -> None:
@@ -374,7 +432,7 @@ class MazeApp(App[None]):
         self.palette["wall"] = self.WALL_COLOR_CYCLE[
             (index + 1) % len(self.WALL_COLOR_CYCLE)
         ]
-        if self.is_mounted:
+        if self._is_mounted:
             self.refresh_maze_view()
 
     def action_cycle_pattern_color(self) -> None:
@@ -387,17 +445,17 @@ class MazeApp(App[None]):
         self.palette["pattern"] = self.PATTERN_COLOR_CYCLE[
             (index + 1) % len(self.PATTERN_COLOR_CYCLE)
         ]
-        if self.is_mounted:
+        if self._is_mounted:
             self.refresh_maze_view()
 
     def watch_show_path(self, _: bool, __: bool) -> None:
         """Refresh maze when path visibility changes."""
-        if self.is_mounted:
+        if self._is_mounted:
             self.refresh_maze_view()
 
     def watch_maze_revision(self, _: int, __: int) -> None:
         """Refresh maze when a new maze generation is committed."""
-        if self.is_mounted:
+        if self._is_mounted:
             self.refresh_maze_view()
 
 
