@@ -433,10 +433,27 @@ class MazeGenerator:
         # without redesigning the path
         import copy
         self._maze_cache = copy.deepcopy(self._maze)
+        # Ratio cache is tied to one generated base maze only.
+        # Reset it when a new maze is generated.
+        self._ratio_cache = {}
 
         # If not perfect, remove extra walls to create cycles
         if not self.params.perfect:
             self._remove_extra_walls()
+
+    def _sync_entry_exit_markers(self) -> None:
+        """Ensure ``is_entry`` / ``is_exit`` flags match stored coordinates."""
+        for row in self._maze:
+            for cell in row:
+                cell.is_entry = False
+                cell.is_exit = False
+
+        if self._entry is not None:
+            entry_col, entry_row = self._entry
+            self._maze[entry_row][entry_col].is_entry = True
+        if self._exit is not None:
+            exit_col, exit_row = self._exit
+            self._maze[exit_row][exit_col].is_exit = True
 
     def regenerate_imperfect(self, ratio: float) -> None:
         """Apply a new imperfection ratio to the existing perfect maze
@@ -475,6 +492,7 @@ class MazeGenerator:
         ratio_key = round(ratio, 2)
         if ratio_key in self._ratio_cache:
             self._maze = copy.deepcopy(self._ratio_cache[ratio_key])
+            self._sync_entry_exit_markers()
             return
 
         # Otherwise find the closest smaller ratio state to build incrementally
@@ -498,6 +516,7 @@ class MazeGenerator:
         # absolute target ratio on a partially carved maze will naturally
         # just carve the remaining difference!
         self._remove_extra_walls(target_ratio=ratio_key)
+        self._sync_entry_exit_markers()
 
         # Save to cache
         self._ratio_cache[ratio_key] = copy.deepcopy(self._maze)
@@ -847,6 +866,10 @@ class MazeGenerator:
 
         width, height = self.params.width, self.params.height
 
+        # Use a local RNG to keep reproducibility here without resetting
+        # the global random state used by other features (e.g. random I/O).
+        rng = random.Random(self.params.seed)
+
         # 1. Count Total Capacity of a Perfect Maze
         # A perfect maze grid has (width - 1) * height east walls
         #  + (height - 1) * width south walls
@@ -910,7 +933,7 @@ class MazeGenerator:
         if n_remove <= 0:
             return
 
-        random.shuffle(candidates)
+        rng.shuffle(candidates)
 
         removed_count = 0
         for cell, neighbor, direction in candidates:

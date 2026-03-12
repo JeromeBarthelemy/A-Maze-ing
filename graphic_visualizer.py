@@ -162,8 +162,7 @@ class MazeApp(App[None]):
         ("c", "cycle_theme", "Change theme"),
         ("w", "cycle_wall_color", "Cycle wall color"),
         ("f", "cycle_pattern_color", "Cycle 42 color"),
-        ("r", "regenerate", "Re-generate maze"),
-        ("m", "toggle_perfect", "Perfect/imperfect maze"),
+        ("g", "regenerate", "Re-generate maze"),
         ("i", "toggle_random_io", "Fixed/random entry/exit"),
         ("up", "increase_ratio", "Increase ratio (+5%)"),
         ("down", "decrease_ratio", "Decrease ratio (-5%)"),
@@ -387,8 +386,13 @@ class MazeApp(App[None]):
                 stored_entry = self.maze_gen._entry
                 stored_exit = self.maze_gen._exit
                 if stored_entry is None or stored_exit is None:
-                    return
-                entry, exit_ = stored_entry, stored_exit
+                    entry = (0, 0)
+                    exit_ = (
+                        self.maze_gen.params.width - 1,
+                        self.maze_gen.params.height - 1,
+                    )
+                else:
+                    entry, exit_ = stored_entry, stored_exit
 
             # 3. Generate new maze data
             self.maze_gen.generate(entry=entry, exit_=exit_)
@@ -407,15 +411,9 @@ class MazeApp(App[None]):
                 f.write(f"Error in action_regenerate: {e}\n")
                 traceback.print_exc(file=f)
 
-    def action_toggle_perfect(self) -> None:
-        """Toggle perfect/imperfect maze and regenerate."""
-        self.is_perfect = not self.is_perfect
-        self.action_regenerate()
-
     def action_toggle_random_io(self) -> None:
-        """Toggle fixed/random entry/exit and regenerate."""
+        """Toggle fixed/random entry/exit mode for next regeneration."""
         self.random_io = not self.random_io
-        self.action_regenerate()
 
     def action_toggle_path(self) -> None:
         """Toggle solution path visibility and refresh maze cells."""
