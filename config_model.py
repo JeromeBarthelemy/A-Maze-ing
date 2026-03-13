@@ -29,8 +29,8 @@ LOGO_42_PATTERN = [
 class MazeConfig(BaseModel):
     """Pydantic model for maze configuration."""
 
-    WIDTH: int = Field(default=21, gt=0)
-    HEIGHT: int = Field(default=21, gt=0)
+    WIDTH: int = Field(gt=0)
+    HEIGHT: int = Field(gt=0)
     ENTRY: Tuple[int, int]
     EXIT: Tuple[int, int]
     OUTPUT_FILE: str

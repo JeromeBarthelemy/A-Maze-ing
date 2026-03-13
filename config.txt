@@ -7,4 +7,6 @@ OUTPUT_FILE=maze.txt
 PERFECT=True
 ENABLE_TUI=False
 SEED=42
+# RATIO is used only when PERFECT=False.
+# If PERFECT=True, the maze remains perfect (RATIO is ignored).
 RATIO=0.1
