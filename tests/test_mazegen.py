@@ -1,6 +1,9 @@
 """Pytest unit tests for maze generation and pathfinding."""
 
 from collections import deque
+from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -86,7 +89,7 @@ def test_logo_not_placed_when_maze_too_small(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Verify error message when maze is too small for the 42 logo."""
-    # Logo requires 7x5, test with smaller maze
+    # Logo requires at least 8x6 (strictly larger than 7x5).
     generator = MazeGenerator(width=5, height=4, seed=42, perfect=True)
     generator.generate(entry=(0, 0), exit_=(4, 3))
 
@@ -208,3 +211,34 @@ def test_imperfect_ratio_zero_adds_no_extra_walls() -> None:
                 passages += 1
 
     assert passages == active_cells - 1
+
+
+def test_output_validator_accepts_generated_output(tmp_path: Path) -> None:
+    """Generated output should pass the provided subject validator."""
+    generator = MazeGenerator(width=29, height=12, seed=42, perfect=False)
+    entry = (0, 0)
+    exit_ = (28, 11)
+    generator.generate(entry=entry, exit_=exit_)
+    shortest_path = generator.shortest_path()
+
+    output_file = tmp_path / "maze.txt"
+    with output_file.open("w") as output_stream:
+        for row in generator.get_hex_grid():
+            output_stream.write("".join(row) + "\n")
+        output_stream.write("\n")
+        output_stream.write(f"{entry[0]},{entry[1]}\n")
+        output_stream.write(f"{exit_[0]},{exit_[1]}\n")
+        output_stream.write(f"{shortest_path}\n")
+
+    validator = Path(__file__).resolve().parents[1] / "output_validator.py"
+    result = subprocess.run(
+        [sys.executable, str(validator), str(output_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        f"validator failed with code {result.returncode}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )

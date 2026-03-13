@@ -353,7 +353,7 @@ class MazeGenerator:
         if not self._can_fit_logo():
             print(
                 f"Error: Maze too small for 42 logo "
-                f"(minimum size: {LOGO_WIDTH}x{LOGO_HEIGHT}, "
+                f"(minimum size: {LOGO_WIDTH + 1}x{LOGO_HEIGHT + 1}, "
                 f"current: {self.params.width}x{self.params.height})",
                 file=sys.stderr,
             )
