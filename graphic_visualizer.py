@@ -34,6 +34,16 @@ class MazeCell(Static):
         palette: dict[str, str],
         **kwargs: Any,
     ) -> None:
+        """Initialize one visual maze cell widget.
+
+        Args:
+            cell: Backing maze cell model.
+            maze_gen: Maze generator used for neighbor/path state.
+            is_last_row: True if this cell is in the bottom row.
+            is_last_col: True if this cell is in the rightmost column.
+            palette: Color mapping used during rendering.
+            **kwargs: Additional keyword arguments passed to ``Static``.
+        """
         super().__init__(**kwargs)
         self.cell = cell
         self.maze_gen = maze_gen
@@ -159,13 +169,13 @@ class MazeApp(App[None]):
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("t", "toggle_path", "Show/hide path"),
-        ("t", "cycle_theme", "Theme"),
+        ("c", "cycle_theme", "Theme"),
         ("w", "cycle_wall_color", "Wall"),
-        ("l", "cycle_pattern_color", "Logo"),
+        ("f", "cycle_pattern_color", "Logo"),
         ("g", "regenerate", "Generate"),
-        ("r", "toggle_random_io", "Random entry/exit"),
+        ("i", "toggle_random_io", "Random entry/exit"),
         ("plus", "increase_ratio", "More imperfect"),
-        ("minus", "decrease_ratio", "More erfect"),
+        ("minus", "decrease_ratio", "Less imperfect"),
         ("right", "increase_width", "Increase width"),
         ("left", "decrease_width", "Decrease width"),
         ("up", "increase_height", "Increase height"),
@@ -328,16 +338,29 @@ class MazeApp(App[None]):
         yield footer
 
     def watch_is_perfect(self, _: bool, __: bool) -> None:
+        """Refresh status text when perfect/imperfect mode changes.
+
+        Args:
+            _: Previous value.
+            __: New value.
+        """
         # Update the status Static widget directly
         if self._is_mounted:
             self._update_status_widget()
 
     def watch_random_io(self, _: bool, __: bool) -> None:
+        """Refresh status text when random entry/exit mode changes.
+
+        Args:
+            _: Previous value.
+            __: New value.
+        """
         # Update the status Static widget directly
         if self._is_mounted:
             self._update_status_widget()
 
     def _update_status_widget(self) -> None:
+        """Update the status line widget if it exists in the DOM."""
         # Only update if the widget exists (after compose)
         try:
             status_widget = self.query_one("#maze-status", expect_type=Static)
@@ -664,15 +687,19 @@ class MazeApp(App[None]):
         await self.action_regenerate(force_rebuild=True)
 
     async def action_increase_width(self) -> None:
+        """Increase maze width by one cell and regenerate."""
         await self._resize_and_regenerate(dw=1)
 
     async def action_decrease_width(self) -> None:
+        """Decrease maze width by one cell and regenerate."""
         await self._resize_and_regenerate(dw=-1)
 
     async def action_increase_height(self) -> None:
+        """Increase maze height by one cell and regenerate."""
         await self._resize_and_regenerate(dh=1)
 
     async def action_decrease_height(self) -> None:
+        """Decrease maze height by one cell and regenerate."""
         await self._resize_and_regenerate(dh=-1)
 
     def watch_maze_revision(self, _: int, __: int) -> None:

@@ -7,7 +7,7 @@
 - **Project overview:**
   - Input: a config file (`KEY=VALUE`)
   - Processing: maze generation + validation + shortest path
-  - Output: maze file + visual rendering (Textual TUI)
+  - Output: maze file + optional visual rendering (Textual TUI)
 - **Scope (mandatory):**
   - Random generation with reproducibility via seed
   - `PERFECT=True` support (single path entry → exit)
@@ -121,11 +121,17 @@ make run
 python3 a_maze_ing.py config.txt
 ```
 
+Set `ENABLE_TUI=True` in `config.txt` to launch the Textual viewer after file
+generation. Default is `ENABLE_TUI=False` for non-interactive CLI execution.
+If dependencies are missing, the program prints a clear message suggesting
+`make install`.
+
 ### Error handling expectations
 - Invalid/missing config
 - Syntax errors in config
 - Impossible parameters (out-of-bounds entry/exit, etc.)
 - Missing files / invalid permissions
+- Missing Python dependencies (clear message with install hint)
 
 ## Configuration File Format
 One `KEY=VALUE` per line. Lines starting with `#` are comments.
@@ -142,9 +148,8 @@ One `KEY=VALUE` per line. Lines starting with `#` are comments.
 
 ### Optional keys (team choices)
 - `SEED=<int>`
-- `ALGORITHM=<name>`
-- `DISPLAY_MODE=<textual>`
-- `WALL_COLOR=<name|hex>`
+- `RATIO=<float 0.0..1.0>`
+- `ENABLE_TUI=<True|False>` (launch Textual viewer after generation)
 
 ### Example config
 ```ini
@@ -156,6 +161,8 @@ EXIT=19,14
 OUTPUT_FILE=maze.txt
 PERFECT=True
 SEED=42
+RATIO=0.1
+ENABLE_TUI=False
 ```
 
 ## Output File Format
@@ -191,7 +198,8 @@ EESSENNW...
 - **Perfect maze behavior:** exactly `W*H - 1` passages opened, no cycles,
   all cells connected (single unique path between two cells)
 - **42 logo behavior:** logo placement is always enabled; when maze size is
-  at least `7x5`, closed cells forming the `42` pattern are injected.
+  strictly larger than `7x5` (`WIDTH > 7` and `HEIGHT > 5`), closed cells
+  forming the `42` pattern are injected.
 
 ## Visual Representation
 - **Mode implemented:** Textual TUI (`graphic_visualizer.py`)
@@ -202,11 +210,15 @@ EESSENNW...
   - optional dedicated color for the `42` pattern (`is_pattern`)
 - **Controls:**
   - `q`: quit
-  - `p`: toggle shortest path visibility
+  - `t`: toggle shortest path visibility
   - `c`: cycle Textual themes
   - `w`: cycle wall color
   - `f`: cycle `42` pattern color
-  - `r`: regenerate maze
+  - `g`: regenerate maze
+  - `i`: toggle random/fixed entry-exit
+  - `+` / `-`: increase/decrease imperfection ratio
+  - `←` / `→`: decrease/increase width
+  - `↑` / `↓`: increase/decrease height
 
 ## Reusability (Mandatory)
 

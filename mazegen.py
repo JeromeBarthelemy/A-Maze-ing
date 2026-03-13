@@ -292,7 +292,8 @@ class MazeGenerator:
             True if the maze can fit the logo, False otherwise.
         """
         return (
-            self.params.width > LOGO_WIDTH and self.params.height > LOGO_HEIGHT
+            self.params.width > LOGO_WIDTH
+            and self.params.height > LOGO_HEIGHT
         )
 
     def _is_in_logo(self, x: int, y: int) -> bool:

@@ -35,6 +35,7 @@ class MazeConfig(BaseModel):
     EXIT: Tuple[int, int]
     OUTPUT_FILE: str
     PERFECT: bool
+    ENABLE_TUI: bool = False
     SEED: int = 42
     RATIO: float = Field(default=0.10, ge=0.0, le=1.0)
 
@@ -132,7 +133,7 @@ class MazeConfig(BaseModel):
             ValueError: If ENTRY or EXIT falls on a logo cell.
         """
         # Skip validation if maze is too small for the logo
-        if self.WIDTH < LOGO_WIDTH or self.HEIGHT < LOGO_HEIGHT:
+        if self.WIDTH <= LOGO_WIDTH or self.HEIGHT <= LOGO_HEIGHT:
             return self
 
         # Calculate logo position (centered)
