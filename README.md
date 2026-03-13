@@ -428,10 +428,15 @@ git push --force-with-lease
 - **Validation process:** `flake8`, `mypy --strict`, runtime checks via
   CLI and TUI execution.
 
-## Bonus (if implemented)
-- Multiple generation algorithms
-- Multiple Textual display modes/themes
-- Additional interactions/options
+## Bonus
+- Theme switching in the visualizer (`c`)
+- Dedicated `42` pattern color cycling (`f`)
+- Fixed/random entry-exit toggle (`i`)
+- Live imperfection ratio control (`+` / `-`)
+- Live maze resize controls (arrow keys)
+- Extended status/header information (mode, size, entry/exit coordinates)
+- Optional TUI launch via config (`ENABLE_TUI=True`), with non-interactive
+  CLI output by default
 
 ## Current Project Status
 
