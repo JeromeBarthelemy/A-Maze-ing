@@ -193,10 +193,19 @@ EESSENNW...
 
 ## Maze Generation Algorithm
 - **Chosen algorithm:** randomized Kruskal on cell-adjacency graph
+- **Why this algorithm:** it is simple and elegant to implement, while
+  naturally producing perfect mazes (spanning trees) without directional bias.
+- **Performance rationale:** even if random wall opening can be implemented
+  without Kruskal/Union-Find, this pair was chosen for fast connectivity
+  checks and better performance on larger grids.
 - **Disjoint set structure:** Union-Find (path compression + union by size)
 - **Seed/reproducibility strategy:** Python `random.seed(SEED)`
 - **Perfect maze behavior:** exactly `W*H - 1` passages opened, no cycles,
   all cells connected (single unique path between two cells)
+- **Pathfinding algorithm:** Lee/BFS.
+- **Why this pathfinding choice:** it is the simplified form of Dijkstra when
+  all edges have the same weight. `A*` was considered, but in this context it
+  added complexity without a significant gain.
 - **42 logo behavior:** logo placement is always enabled; when maze size is
   strictly larger than `7x5` (`WIDTH > 7` and `HEIGHT > 5`), closed cells
   forming the `42` pattern are injected.
@@ -318,14 +327,26 @@ path = generator.shortest_path()
   - Submission preparation
 
 ### Evolution during project
-- TODO: what changed and why.
+- Initial plan: use MLX for the visual display.
+- Change made: we dropped the MLX approach because installation/setup was
+  difficult in our environment, and the C-oriented porting path looked
+  inefficient for our project constraints.
+- Final choice: we switched to Textual for terminal rendering (ASCII-based),
+  with a result close to a lightweight graphical library and enough flexibility
+  to add extra visualization options (themes, wall/logo colors, path toggle,
+  regeneration, dynamic size/ratio controls).
 
 ### Retrospective
-- **What worked well:** TODO
-- **What could be improved:** TODO
+- **What worked well:** Maze generation and pathfinding algorithms were quick
+  to implement and straightforward to make work reliably.
+- **What could be improved:** Implement a true graphical interface and add
+  animations for maze creation and/or pathfinding visualization.
 
 ### Tools used
-- TODO (e.g., GitHub Projects, Issues, Discord, Excalidraw, etc.)
+- GitHub (repository hosting, branching, pull requests, code reviews)
+- Slack (team communication and coordination)
+- VS Code (development environment)
+- Antigravity (AI-assisted coding support)
 
 ## Git Workflow (Binôme)
 
