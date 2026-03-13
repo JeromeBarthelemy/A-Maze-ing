@@ -145,3 +145,66 @@ def test_path_exists_with_logo() -> None:
     path = generator.shortest_path()
     assert len(path) > 0
     assert all(step in "NESW" for step in path)
+
+
+def test_logo_state_reset_between_generations_keeps_small_perfect() -> None:
+    """Large maze with logo then small maze should still be fully connected."""
+    generator = MazeGenerator(width=15, height=11, seed=42, perfect=True)
+    generator.generate(entry=(0, 0), exit_=(14, 10))
+    assert generator._logo_placed
+    assert generator._logo_cell_count > 0
+
+    generator.params = generator.params.__class__(
+        width=6,
+        height=4,
+        seed=42,
+        perfect=True,
+        ratio=generator.params.ratio,
+    )
+    generator.generate(entry=(0, 0), exit_=(5, 3))
+
+    assert not generator._logo_placed
+    assert generator._logo_cell_count == 0
+
+    maze = generator.get_structure()
+    visited = {(0, 0)}
+    queue = deque([maze[0][0]])
+
+    while queue:
+        current = queue.popleft()
+        for neighbor, _ in generator.get_reachable_neighbors(current):
+            key = (neighbor.col, neighbor.row)
+            if key not in visited:
+                visited.add(key)
+                queue.append(neighbor)
+
+    assert len(visited) == 6 * 4
+
+
+def test_imperfect_ratio_zero_adds_no_extra_walls() -> None:
+    """Ratio 0% must not add cycles in imperfect mode."""
+    width, height = 6, 4
+    generator = MazeGenerator(
+        width=width,
+        height=height,
+        seed=42,
+        perfect=False,
+        ratio=0.0,
+    )
+    generator.generate(entry=(0, 0), exit_=(5, 3))
+
+    maze = generator.get_structure()
+    passages = 0
+    active_cells = 0
+    for y in range(height):
+        for x in range(width):
+            cell = maze[y][x]
+            if cell.is_pattern:
+                continue
+            active_cells += 1
+            if x < width - 1 and not cell.has_wall(WallBits.EAST):
+                passages += 1
+            if y < height - 1 and not cell.has_wall(WallBits.SOUTH):
+                passages += 1
+
+    assert passages == active_cells - 1

@@ -188,6 +188,8 @@ class MazeGenerator:
         self._size: list[int] = []
         self._logo_placed: bool = False
         self._logo_cell_count: int = 0
+        self._maze_cache: MazeGrid = []
+        self._ratio_cache: dict[float, MazeGrid] = {}
 
     def _cell_index(self, row: int, col: int) -> int:
         """Convert grid coordinates into a Union-Find index.
@@ -653,6 +655,11 @@ class MazeGenerator:
 
     def initialize_maze_grid(self) -> None:
         """Initialize maze cells and Union-Find state before generation."""
+        # Reset logo bookkeeping for each new generation. Without this,
+        # a previous run with a logo can leak its cell count into a smaller
+        # maze and corrupt the perfect-maze target passage count.
+        self._logo_placed = False
+        self._logo_cell_count = 0
         self._maze = self._create_empty_grid()
 
         total_cells = self.params.width * self.params.height
@@ -918,9 +925,10 @@ class MazeGenerator:
             return
 
         # Target number of *extra* walls to remove based on the ratio:
-        target_extra_removals = max(1,
-                                    int(original_removable_walls *
-                                        target_ratio))
+        target_extra_removals = max(
+            0,
+            int(original_removable_walls * target_ratio),
+        )
 
         # How many *extra* walls are CURRENTLY removed?
         # current_missing_walls = perfect_maze_passages +

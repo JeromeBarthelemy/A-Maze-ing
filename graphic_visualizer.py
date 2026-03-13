@@ -158,14 +158,18 @@ class MazeApp(App[None]):
     TITLE = "A-Maze-ing Maze Viewer"
     BINDINGS = [
         ("q", "quit", "Quit"),
-        ("p", "toggle_path", "Toggle solution path"),
-        ("c", "cycle_theme", "Change theme"),
-        ("w", "cycle_wall_color", "Cycle wall color"),
-        ("f", "cycle_pattern_color", "Cycle 42 color"),
-        ("g", "regenerate", "Re-generate maze"),
-        ("i", "toggle_random_io", "Fixed/random entry/exit"),
-        ("up", "increase_ratio", "Increase ratio (+5%)"),
-        ("down", "decrease_ratio", "Decrease ratio (-5%)"),
+        ("t", "toggle_path", "Show/hide path"),
+        ("t", "cycle_theme", "Theme"),
+        ("w", "cycle_wall_color", "Wall"),
+        ("l", "cycle_pattern_color", "Logo"),
+        ("g", "regenerate", "Generate"),
+        ("r", "toggle_random_io", "Random entry/exit"),
+        ("plus", "increase_ratio", "More imperfect"),
+        ("minus", "decrease_ratio", "More erfect"),
+        ("right", "increase_width", "Increase width"),
+        ("left", "decrease_width", "Decrease width"),
+        ("up", "increase_height", "Increase height"),
+        ("down", "decrease_height", "Decrease height"),
     ]
 
     PALETTE: dict[str, str] = {
@@ -225,6 +229,13 @@ class MazeApp(App[None]):
     MazeCell.last-row { height: 4; }
     MazeCell.last-col { width: 8; }
     MazeCell.corner   { width: 8; height: 4; }
+
+    Footer {
+        height: auto;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-size: 1 1;
+    }
     """
 
     def __init__(self, maze_gen: MazeGenerator, **kwargs: Any) -> None:
@@ -236,7 +247,19 @@ class MazeApp(App[None]):
         super().__init__(**kwargs)
         self.maze_gen = maze_gen
         self.is_perfect = self.maze_gen.params.perfect
-        self.ratio = self.maze_gen.params.ratio
+        # In perfect mode, ratio is irrelevant; normalize it to 0.0 so
+        # first +/- adjustment starts from 0% instead of config value.
+        if self.is_perfect:
+            self.ratio = 0.0
+            self.maze_gen.params = self.maze_gen.params.__class__(
+                width=self.maze_gen.params.width,
+                height=self.maze_gen.params.height,
+                seed=self.maze_gen.params.seed,
+                perfect=self.maze_gen.params.perfect,
+                ratio=0.0,
+            )
+        else:
+            self.ratio = self.maze_gen.params.ratio
         self._cell_widgets: list[MazeCell] = []
         # Avoid reading a reactive value in __init__, which can trigger
         # watchers before the widget tree exists.
@@ -289,15 +312,7 @@ class MazeApp(App[None]):
             Header, centered maze grid, and footer widgets.
         """
         yield Header()
-        # Display current mode/status below the header
-        mode = ("Parfait" if self.is_perfect
-                else f"Imparfait ({int(self.ratio * 100)}%)")
-        io_mode = (
-            "Entrées/Sorties fixes"
-            if not self.random_io
-            else "Entrées/Sorties aléatoires"
-        )
-        yield Static(f"[Mode] {mode} | {io_mode}", id="maze-status")
+        yield Static(self._status_text(), id="maze-status")
         if self.maze_gen.get_solution() is None:
             try:
                 self.maze_gen.shortest_path()
@@ -308,7 +323,9 @@ class MazeApp(App[None]):
             with Grid(id="maze-grid"):
                 self._cell_widgets = list(self._generate_maze_cells())
                 yield from self._cell_widgets
-        yield Footer()
+        footer = Footer()
+        footer.compact = True
+        yield footer
 
     def watch_is_perfect(self, _: bool, __: bool) -> None:
         # Update the status Static widget directly
@@ -326,6 +343,94 @@ class MazeApp(App[None]):
             status_widget = self.query_one("#maze-status", expect_type=Static)
         except Exception:
             return
+        status_widget.update(self._status_text())
+
+    def _format_coord(self, coord: tuple[int, int] | None) -> str:
+        """Format a coordinate for the status line."""
+        if coord is None:
+            return "N/A"
+        return f"({coord[0]}, {coord[1]})"
+
+    def _nearest_valid_coord(
+        self,
+        preferred: tuple[int, int],
+        exclude: tuple[int, int] | None = None,
+    ) -> tuple[int, int]:
+        """Pick the closest valid coordinate, avoiding logo and exclusion."""
+        w, h = self.maze_gen.params.width, self.maze_gen.params.height
+        candidates: list[tuple[int, int]] = []
+        for y in range(h):
+            for x in range(w):
+                coord = (x, y)
+                if exclude is not None and coord == exclude:
+                    continue
+                if self.maze_gen._is_in_logo(x, y):
+                    continue
+                candidates.append(coord)
+
+        if not candidates:
+            raise ValueError("No valid coordinate available for entry/exit.")
+
+        return min(
+            candidates,
+            key=lambda c: (
+                abs(c[0] - preferred[0]) + abs(c[1] - preferred[1]),
+                c[1],
+                c[0],
+            ),
+        )
+
+    def _sanitize_fixed_endpoints(
+        self,
+        entry: tuple[int, int],
+        exit_: tuple[int, int],
+    ) -> tuple[tuple[int, int], tuple[int, int]]:
+        """Clamp and relocate fixed entry/exit to valid reachable cells."""
+        max_x = self.maze_gen.params.width - 1
+        max_y = self.maze_gen.params.height - 1
+
+        entry_pref = (
+            min(max(entry[0], 0), max_x),
+            min(max(entry[1], 0), max_y),
+        )
+        exit_pref = (
+            min(max(exit_[0], 0), max_x),
+            min(max(exit_[1], 0), max_y),
+        )
+
+        safe_entry = self._nearest_valid_coord(entry_pref)
+        # If the stored exit no longer fits the resized maze,
+        # use a deterministic placement at bottom-right.
+        exit_out_of_bounds = (
+            exit_[0] < 0
+            or exit_[0] > max_x
+            or exit_[1] < 0
+            or exit_[1] > max_y
+        )
+        exit_invalid = (
+            self.maze_gen._is_in_logo(exit_pref[0], exit_pref[1])
+            or exit_pref == safe_entry
+        )
+        if exit_out_of_bounds or exit_invalid:
+            for candidate in (
+                (max_x, max_y),  # bottom-right
+                (0, max_y),      # bottom-left
+                (max_x, 0),      # top-right
+                (0, 0),          # top-left
+            ):
+                if (
+                    candidate != safe_entry
+                    and not self.maze_gen._is_in_logo(
+                        candidate[0], candidate[1]
+                    )
+                ):
+                    return safe_entry, candidate
+
+        safe_exit = self._nearest_valid_coord(exit_pref, exclude=safe_entry)
+        return safe_entry, safe_exit
+
+    def _status_text(self) -> str:
+        """Build the full status text shown under the header."""
         mode = ("Parfait" if self.is_perfect
                 else f"Imparfait ({int(self.ratio * 100)}%)")
         io_mode = (
@@ -333,9 +438,15 @@ class MazeApp(App[None]):
             if not self.random_io
             else "Entrées/Sorties aléatoires"
         )
-        status_widget.update(f"[Mode] {mode} | {io_mode}")
+        size = f"{self.maze_gen.params.width}x{self.maze_gen.params.height}"
+        entry = self._format_coord(self.maze_gen._entry)
+        exit_ = self._format_coord(self.maze_gen._exit)
+        return (
+            f"[Mode] {mode} | {io_mode} | "
+            f"Taille: {size} | Entrée: {entry} | Sortie: {exit_}"
+        )
 
-    def on_mount(self) -> None:
+    def _configure_grid_dimensions(self) -> None:
         """Configure maze grid dimensions and explicit track sizes."""
         w, h = self.maze_gen.params.width, self.maze_gen.params.height
         maze_grid = self.query_one("#maze-grid")
@@ -351,7 +462,19 @@ class MazeApp(App[None]):
         # with 2 chars per horizontal unit.
         maze_grid.styles.width = (3 * w + 1) * 2 + 2
         maze_grid.styles.height = (3 * h + 1) + 2
+
+    def on_mount(self) -> None:
+        """Configure initial maze grid dimensions."""
+        self._configure_grid_dimensions()
         self._is_mounted = True
+
+    async def _rebuild_maze_grid(self) -> None:
+        """Rebuild maze widgets when dimensions change."""
+        maze_grid = self.query_one("#maze-grid", expect_type=Grid)
+        await maze_grid.remove_children()
+        self._cell_widgets = list(self._generate_maze_cells())
+        await maze_grid.mount_all(self._cell_widgets)
+        self._configure_grid_dimensions()
 
     def refresh_maze_view(self) -> None:
         """Update and refresh the maze grid widgets from generator state."""
@@ -369,9 +492,13 @@ class MazeApp(App[None]):
             widget.palette = resolved_palette
             widget.refresh()
 
-    def action_regenerate(self) -> None:
+    async def action_regenerate(self, force_rebuild: bool = False) -> None:
         """Re-generate the maze and refresh the view."""
         try:
+            old_size = (
+                self.maze_gen.params.width,
+                self.maze_gen.params.height,
+            )
             self.maze_gen.params = self.maze_gen.params.__class__(
                 width=self.maze_gen.params.width,
                 height=self.maze_gen.params.height,
@@ -392,7 +519,9 @@ class MazeApp(App[None]):
                         self.maze_gen.params.height - 1,
                     )
                 else:
-                    entry, exit_ = stored_entry, stored_exit
+                    entry, exit_ = self._sanitize_fixed_endpoints(
+                        stored_entry, stored_exit
+                    )
 
             # 3. Generate new maze data
             self.maze_gen.generate(entry=entry, exit_=exit_)
@@ -403,8 +532,17 @@ class MazeApp(App[None]):
             except ValueError:
                 pass  # No path found, that's fine
 
-            # 5. Trigger UI refresh via reactive state.
-            self.maze_revision += 1
+            # 5. Refresh UI depending on whether dimensions changed.
+            new_size = (
+                self.maze_gen.params.width,
+                self.maze_gen.params.height,
+            )
+            if force_rebuild or new_size != old_size:
+                await self._rebuild_maze_grid()
+            else:
+                self.maze_revision += 1
+
+            self._update_status_widget()
         except Exception as e:
             import traceback
             with open("/tmp/maze_error.log", "a") as f:
@@ -474,6 +612,14 @@ class MazeApp(App[None]):
         """Update UI and adjust imperfections when ratio changes."""
         if self._is_mounted:
             self._update_status_widget()
+            if not self.is_perfect and self.maze_gen.params.perfect:
+                self.maze_gen.params = self.maze_gen.params.__class__(
+                    width=self.maze_gen.params.width,
+                    height=self.maze_gen.params.height,
+                    seed=self.maze_gen.params.seed,
+                    perfect=False,
+                    ratio=self.ratio,
+                )
             self.maze_gen.regenerate_imperfect(self.ratio)
             try:
                 self.maze_gen.shortest_path()
@@ -485,13 +631,49 @@ class MazeApp(App[None]):
         """Increase imperfection ratio by 5% up to 100%."""
         new_ratio = min(1.0, round(self.ratio + 0.05, 2))
         if new_ratio != self.ratio:
+            # Editing ratio means the user wants imperfect mode.
+            if self.is_perfect:
+                self.is_perfect = False
             self.ratio = new_ratio
 
     def action_decrease_ratio(self) -> None:
         """Decrease imperfection ratio by 5% down to 0%."""
         new_ratio = max(0.0, round(self.ratio - 0.05, 2))
         if new_ratio != self.ratio:
+            # Editing ratio means the user wants imperfect mode.
+            if self.is_perfect:
+                self.is_perfect = False
             self.ratio = new_ratio
+
+    async def _resize_and_regenerate(self, dw: int = 0, dh: int = 0) -> None:
+        """Resize maze dimensions and regenerate."""
+        current_w = self.maze_gen.params.width
+        current_h = self.maze_gen.params.height
+        new_w = max(2, current_w + dw)
+        new_h = max(2, current_h + dh)
+        if new_w == current_w and new_h == current_h:
+            return
+
+        self.maze_gen.params = self.maze_gen.params.__class__(
+            width=new_w,
+            height=new_h,
+            seed=self.maze_gen.params.seed,
+            perfect=self.is_perfect,
+            ratio=self.ratio,
+        )
+        await self.action_regenerate(force_rebuild=True)
+
+    async def action_increase_width(self) -> None:
+        await self._resize_and_regenerate(dw=1)
+
+    async def action_decrease_width(self) -> None:
+        await self._resize_and_regenerate(dw=-1)
+
+    async def action_increase_height(self) -> None:
+        await self._resize_and_regenerate(dh=1)
+
+    async def action_decrease_height(self) -> None:
+        await self._resize_and_regenerate(dh=-1)
 
     def watch_maze_revision(self, _: int, __: int) -> None:
         """Refresh maze when a new maze generation is committed."""
