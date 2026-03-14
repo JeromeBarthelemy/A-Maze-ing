@@ -33,6 +33,7 @@ htmlcov/
 # Local runtime outputs
 *.log
 *.tmp
+maze.txt
 
 # Local tests
 graphic_visualizer/

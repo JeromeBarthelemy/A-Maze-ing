@@ -12,30 +12,21 @@ from pydantic import (
 from typing import Tuple
 from typing_extensions import Self
 
-# Logo "42" dimensions (must match mazegen.py)
-LOGO_WIDTH = 7
-LOGO_HEIGHT = 5
-
-# Logo "42" pattern (1 = logo cell, 0 = normal maze cell)
-LOGO_42_PATTERN = [
-    [1, 0, 0, 0, 1, 1, 1],  # row 0
-    [1, 0, 0, 0, 0, 0, 1],  # row 1
-    [1, 1, 1, 0, 1, 1, 1],  # row 2
-    [0, 0, 1, 0, 1, 0, 0],  # row 3
-    [0, 0, 1, 0, 1, 1, 1],  # row 4
-]
+from mazegen import LOGO_WIDTH, LOGO_HEIGHT, LOGO_42_PATTERN
 
 
 class MazeConfig(BaseModel):
     """Pydantic model for maze configuration."""
 
-    WIDTH: int = Field(default=21, gt=0)
-    HEIGHT: int = Field(default=21, gt=0)
+    WIDTH: int = Field(gt=0)
+    HEIGHT: int = Field(gt=0)
     ENTRY: Tuple[int, int]
     EXIT: Tuple[int, int]
     OUTPUT_FILE: str
     PERFECT: bool
+    ENABLE_TUI: bool = False
     SEED: int = 42
+    RATIO: float = Field(default=0.10, ge=0.0, le=1.0)
 
     @field_validator("ENTRY", "EXIT", mode="before")
     def parse_coords(cls, v: str | Tuple[int, int]) -> Tuple[int, int]:
@@ -131,7 +122,7 @@ class MazeConfig(BaseModel):
             ValueError: If ENTRY or EXIT falls on a logo cell.
         """
         # Skip validation if maze is too small for the logo
-        if self.WIDTH < LOGO_WIDTH or self.HEIGHT < LOGO_HEIGHT:
+        if self.WIDTH <= LOGO_WIDTH or self.HEIGHT <= LOGO_HEIGHT:
             return self
 
         # Calculate logo position (centered)

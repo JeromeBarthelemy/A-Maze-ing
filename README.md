@@ -7,7 +7,7 @@
 - **Project overview:**
   - Input: a config file (`KEY=VALUE`)
   - Processing: maze generation + validation + shortest path
-  - Output: maze file + visual rendering (Textual TUI)
+  - Output: maze file + optional visual rendering (Textual TUI)
 - **Scope (mandatory):**
   - Random generation with reproducibility via seed
   - `PERFECT=True` support (single path entry → exit)
@@ -121,11 +121,17 @@ make run
 python3 a_maze_ing.py config.txt
 ```
 
+Set `ENABLE_TUI=True` in `config.txt` to launch the Textual viewer after file
+generation. Default is `ENABLE_TUI=False` for non-interactive CLI execution.
+If dependencies are missing, the program prints a clear message suggesting
+`make install`.
+
 ### Error handling expectations
 - Invalid/missing config
 - Syntax errors in config
 - Impossible parameters (out-of-bounds entry/exit, etc.)
 - Missing files / invalid permissions
+- Missing Python dependencies (clear message with install hint)
 
 ## Configuration File Format
 One `KEY=VALUE` per line. Lines starting with `#` are comments.
@@ -142,9 +148,8 @@ One `KEY=VALUE` per line. Lines starting with `#` are comments.
 
 ### Optional keys (team choices)
 - `SEED=<int>`
-- `ALGORITHM=<name>`
-- `DISPLAY_MODE=<textual>`
-- `WALL_COLOR=<name|hex>`
+- `RATIO=<float 0.0..1.0>`
+- `ENABLE_TUI=<True|False>` (launch Textual viewer after generation)
 
 ### Example config
 ```ini
@@ -156,6 +161,8 @@ EXIT=19,14
 OUTPUT_FILE=maze.txt
 PERFECT=True
 SEED=42
+RATIO=0.1
+ENABLE_TUI=False
 ```
 
 ## Output File Format
@@ -186,12 +193,22 @@ EESSENNW...
 
 ## Maze Generation Algorithm
 - **Chosen algorithm:** randomized Kruskal on cell-adjacency graph
+- **Why this algorithm:** it is simple and elegant to implement, while
+  naturally producing perfect mazes (spanning trees) without directional bias.
+- **Performance rationale:** even if random wall opening can be implemented
+  without Kruskal/Union-Find, this pair was chosen for fast connectivity
+  checks and better performance on larger grids.
 - **Disjoint set structure:** Union-Find (path compression + union by size)
 - **Seed/reproducibility strategy:** Python `random.seed(SEED)`
 - **Perfect maze behavior:** exactly `W*H - 1` passages opened, no cycles,
   all cells connected (single unique path between two cells)
+- **Pathfinding algorithm:** Lee/BFS.
+- **Why this pathfinding choice:** it is the simplified form of Dijkstra when
+  all edges have the same weight. `A*` was considered, but in this context it
+  added complexity without a significant gain.
 - **42 logo behavior:** logo placement is always enabled; when maze size is
-  at least `7x5`, closed cells forming the `42` pattern are injected.
+  strictly larger than `7x5` (`WIDTH > 7` and `HEIGHT > 5`), closed cells
+  forming the `42` pattern are injected.
 
 ## Visual Representation
 - **Mode implemented:** Textual TUI (`graphic_visualizer.py`)
@@ -202,11 +219,15 @@ EESSENNW...
   - optional dedicated color for the `42` pattern (`is_pattern`)
 - **Controls:**
   - `q`: quit
-  - `p`: toggle shortest path visibility
+  - `t`: toggle shortest path visibility
   - `c`: cycle Textual themes
   - `w`: cycle wall color
   - `f`: cycle `42` pattern color
-  - `r`: regenerate maze
+  - `g`: regenerate maze
+  - `i`: toggle random/fixed entry-exit
+  - `+` / `-`: increase/decrease imperfection ratio
+  - `←` / `→`: decrease/increase width
+  - `↑` / `↓`: increase/decrease height
 
 ## Reusability (Mandatory)
 
@@ -306,14 +327,26 @@ path = generator.shortest_path()
   - Submission preparation
 
 ### Evolution during project
-- TODO: what changed and why.
+- Initial plan: use MLX for the visual display.
+- Change made: we dropped the MLX approach because installation/setup was
+  difficult in our environment, and the C-oriented porting path looked
+  inefficient for our project constraints.
+- Final choice: we switched to Textual for terminal rendering (ASCII-based),
+  with a result close to a lightweight graphical library and enough flexibility
+  to add extra visualization options (themes, wall/logo colors, path toggle,
+  regeneration, dynamic size/ratio controls).
 
 ### Retrospective
-- **What worked well:** TODO
-- **What could be improved:** TODO
+- **What worked well:** Maze generation and pathfinding algorithms were quick
+  to implement and straightforward to make work reliably.
+- **What could be improved:** Implement a true graphical interface and add
+  animations for maze creation and/or pathfinding visualization.
 
 ### Tools used
-- TODO (e.g., GitHub Projects, Issues, Discord, Excalidraw, etc.)
+- GitHub (repository hosting, branching, pull requests, code reviews)
+- Slack (team communication and coordination)
+- VS Code (development environment)
+- Antigravity
 
 ## Git Workflow (Binôme)
 
@@ -388,17 +421,22 @@ git push --force-with-lease
   - https://weblog.jamisbuck.org/2011/2/7/maze-generation-algorithm-recap
 
 ### AI usage disclosure (required)
-- **Tools used:** GitHub Copilot (GPT-5.3-Codex)
+- **Tools used:** GitHub Copilot
 - **Used for:** refactoring, docstring normalization, robustness checks,
   and README updates.
 - **Not used for:** blind integration without manual review.
 - **Validation process:** `flake8`, `mypy --strict`, runtime checks via
   CLI and TUI execution.
 
-## Bonus (if implemented)
-- Multiple generation algorithms
-- Multiple Textual display modes/themes
-- Additional interactions/options
+## Bonus
+- Theme switching in the visualizer (`c`)
+- Dedicated `42` pattern color cycling (`f`)
+- Fixed/random entry-exit toggle (`i`)
+- Live imperfection ratio control (`+` / `-`)
+- Live maze resize controls (arrow keys)
+- Extended status/header information (mode, size, entry/exit coordinates)
+- Optional TUI launch via config (`ENABLE_TUI=True`), with non-interactive
+  CLI output by default
 
 ## Current Project Status
 

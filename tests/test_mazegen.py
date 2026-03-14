@@ -1,8 +1,12 @@
 """Pytest unit tests for maze generation and pathfinding."""
 
 from collections import deque
+from pathlib import Path
+import subprocess
+import sys
 
 import pytest
+from pydantic import ValidationError
 
 from mazegen import MazeGenerator, WallBits
 
@@ -71,27 +75,23 @@ def test_all_cells_reachable_in_perfect_maze() -> None:
     assert len(visited) == width * height
 
 
-def test_single_cell_maze_path() -> None:
-    """Handle single-cell maze edge case for direct API usage."""
+def test_single_cell_maze_entry_equals_exit_raises() -> None:
+    """Reject entry == exit via Pydantic validation."""
     generator = MazeGenerator(width=1, height=1, seed=42, perfect=True)
-    generator.generate(entry=(0, 0), exit_=(0, 0))
-
-    path = generator.shortest_path()
-    assert path == ""
-    cell = generator.get_structure()[0][0]
-    assert cell.is_on_path
+    with pytest.raises(ValidationError, match="must differ"):
+        generator.generate(entry=(0, 0), exit_=(0, 0))
 
 
 def test_logo_not_placed_when_maze_too_small(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Verify error message when maze is too small for the 42 logo."""
-    # Logo requires 7x5, test with smaller maze
+    # Logo requires at least 8x6 (strictly larger than 7x5).
     generator = MazeGenerator(width=5, height=4, seed=42, perfect=True)
     generator.generate(entry=(0, 0), exit_=(4, 3))
 
     captured = capsys.readouterr()
-    assert "Error: Maze too small for 42 logo" in captured.err
+    assert "Error: Maze too small for 42 logo" in captured.out
     assert not generator._logo_placed
 
 
@@ -145,3 +145,129 @@ def test_path_exists_with_logo() -> None:
     path = generator.shortest_path()
     assert len(path) > 0
     assert all(step in "NESW" for step in path)
+
+
+def test_logo_state_reset_between_generations_keeps_small_perfect() -> None:
+    """Large maze with logo then small maze should still be fully connected."""
+    generator = MazeGenerator(width=15, height=11, seed=42, perfect=True)
+    generator.generate(entry=(0, 0), exit_=(14, 10))
+    assert generator._logo_placed
+    assert generator._logo_cell_count > 0
+
+    generator.params = generator.params.__class__(
+        width=6,
+        height=4,
+        seed=42,
+        perfect=True,
+        ratio=generator.params.ratio,
+    )
+    generator.generate(entry=(0, 0), exit_=(5, 3))
+
+    assert not generator._logo_placed
+    assert generator._logo_cell_count == 0
+
+    maze = generator.get_structure()
+    visited = {(0, 0)}
+    queue = deque([maze[0][0]])
+
+    while queue:
+        current = queue.popleft()
+        for neighbor, _ in generator.get_reachable_neighbors(current):
+            key = (neighbor.col, neighbor.row)
+            if key not in visited:
+                visited.add(key)
+                queue.append(neighbor)
+
+    assert len(visited) == 6 * 4
+
+
+def test_imperfect_ratio_zero_adds_no_extra_walls() -> None:
+    """Ratio 0% must not add cycles in imperfect mode."""
+    width, height = 6, 4
+    generator = MazeGenerator(
+        width=width,
+        height=height,
+        seed=42,
+        perfect=False,
+        ratio=0.0,
+    )
+    generator.generate(entry=(0, 0), exit_=(5, 3))
+
+    maze = generator.get_structure()
+    passages = 0
+    active_cells = 0
+    for y in range(height):
+        for x in range(width):
+            cell = maze[y][x]
+            if cell.is_pattern:
+                continue
+            active_cells += 1
+            if x < width - 1 and not cell.has_wall(WallBits.EAST):
+                passages += 1
+            if y < height - 1 and not cell.has_wall(WallBits.SOUTH):
+                passages += 1
+
+    assert passages == active_cells - 1
+
+
+def test_output_validator_accepts_generated_output(tmp_path: Path) -> None:
+    """Generated output should pass the provided subject validator."""
+    generator = MazeGenerator(width=29, height=12, seed=42, perfect=False)
+    entry = (0, 0)
+    exit_ = (28, 11)
+    generator.generate(entry=entry, exit_=exit_)
+    shortest_path = generator.shortest_path()
+
+    output_file = tmp_path / "maze.txt"
+    with output_file.open("w") as output_stream:
+        for row in generator.get_hex_grid():
+            output_stream.write("".join(row) + "\n")
+        output_stream.write("\n")
+        output_stream.write(f"{entry[0]},{entry[1]}\n")
+        output_stream.write(f"{exit_[0]},{exit_[1]}\n")
+        output_stream.write(f"{shortest_path}\n")
+
+    validator = Path(__file__).resolve().parents[1] / "output_validator.py"
+    result = subprocess.run(
+        [sys.executable, str(validator), str(output_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        f"validator failed with code {result.returncode}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
+def test_invalid_width_zero_raises() -> None:
+    """Reject width=0 via Pydantic validation."""
+    with pytest.raises(ValidationError):
+        MazeGenerator(width=0, height=5, seed=42, perfect=True)
+
+
+def test_invalid_height_negative_raises() -> None:
+    """Reject negative height via Pydantic validation."""
+    with pytest.raises(ValidationError):
+        MazeGenerator(width=5, height=-1, seed=42, perfect=True)
+
+
+def test_invalid_ratio_out_of_range_raises() -> None:
+    """Reject ratio outside [0.0, 1.0] via Pydantic validation."""
+    with pytest.raises(ValidationError):
+        MazeGenerator(width=5, height=5, seed=42, ratio=1.5)
+
+
+def test_entry_out_of_bounds_raises() -> None:
+    """Reject entry coordinates outside maze dimensions."""
+    generator = MazeGenerator(width=5, height=5, seed=42, perfect=True)
+    with pytest.raises(ValidationError):
+        generator.generate(entry=(10, 10), exit_=(4, 4))
+
+
+def test_entry_equals_exit_raises() -> None:
+    """Reject generate() when entry equals exit."""
+    generator = MazeGenerator(width=5, height=5, seed=42, perfect=True)
+    with pytest.raises(ValidationError, match="must differ"):
+        generator.generate(entry=(2, 2), exit_=(2, 2))

@@ -10,17 +10,39 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 import os
-from dotenv import load_dotenv
-from pydantic import ValidationError
-
-from mazegen import MazeGenerator
-from config_model import MazeConfig
-
-# from tools import print_grid
-from graphic_visualizer import MazeApp
+from typing import TypedDict
 
 
-def parse_config(config_path: Path) -> dict[str, int | str | bool]:
+def _missing_dependency_message(error: ImportError) -> str:
+    """Build a clear user-facing message for missing Python dependencies.
+
+    Args:
+        error: Import error raised while loading project dependencies.
+
+    Returns:
+        Human-readable instruction to install dependencies.
+    """
+    return (
+        f"Missing dependency: {error}. "
+        "Run `make install`, then `make run`."
+    )
+
+
+class ParsedConfig(TypedDict):
+    """Typed structure for validated maze configuration values."""
+
+    WIDTH: int
+    HEIGHT: int
+    ENTRY: tuple[int, int]
+    EXIT: tuple[int, int]
+    OUTPUT_FILE: str
+    PERFECT: bool
+    ENABLE_TUI: bool
+    SEED: int
+    RATIO: float
+
+
+def parse_config(config_path: Path) -> ParsedConfig:
     """Parse config file (`KEY=VALUE`) into a dictionary.
 
     Args:
@@ -33,19 +55,39 @@ def parse_config(config_path: Path) -> dict[str, int | str | bool]:
         FileNotFoundError: If config file does not exist.
         ValueError: If config format or values are invalid.
     """
+    try:
+        from dotenv import load_dotenv
+        from pydantic import ValidationError
+        from config_model import MazeConfig
+    except ImportError as e:
+        raise ValueError(_missing_dependency_message(e)) from e
+
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    load_dotenv(dotenv_path=config_path)
+    # Ensure config file values override ambient environment variables.
+    load_dotenv(dotenv_path=config_path, override=True)
 
     try:
         config_data: dict[str, str | None] = {
             key: os.getenv(key) for key in MazeConfig.model_fields
         }
         config = MazeConfig(**config_data)  # type: ignore
-        return config.model_dump()
+        return {
+            "WIDTH": config.WIDTH,
+            "HEIGHT": config.HEIGHT,
+            "ENTRY": config.ENTRY,
+            "EXIT": config.EXIT,
+            "OUTPUT_FILE": config.OUTPUT_FILE,
+            "PERFECT": config.PERFECT,
+            "ENABLE_TUI": config.ENABLE_TUI,
+            "SEED": config.SEED,
+            "RATIO": config.RATIO,
+        }
     except ValidationError as e:
         raise ValueError(f"Invalid config file format: {e}") from e
+    except Exception as e:
+        raise ValueError(f"Failed to parse config file: {e}") from e
 
 
 def save_output_file(
@@ -86,21 +128,31 @@ def main() -> int:
     config_path = Path(sys.argv[1])
 
     try:
+        from mazegen import MazeGenerator
+    except ImportError as e:
+        print(_missing_dependency_message(e), file=sys.stderr)
+        return 1
+
+    try:
         config = parse_config(config_path)
     except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
+    except Exception as e:
+        print(f"Unexpected configuration error: {e}", file=sys.stderr)
+        return 1
 
     try:
         maze_generator = MazeGenerator(
-            width=int(config["WIDTH"]),
-            height=int(config["HEIGHT"]),
-            seed=int(config["SEED"]),
-            perfect=bool(config["PERFECT"]),
+            width=config["WIDTH"],
+            height=config["HEIGHT"],
+            seed=config["SEED"],
+            perfect=config["PERFECT"],
+            ratio=config["RATIO"],
         )
         print(f"Maze ready: {config['WIDTH']}x{config['HEIGHT']}")
-        entry: tuple[int, int] = config["ENTRY"]  # type: ignore
-        exit_: tuple[int, int] = config["EXIT"]  # type: ignore
+        entry = config["ENTRY"]
+        exit_ = config["EXIT"]
         maze_generator.generate(entry=entry, exit_=exit_)
         shortest_path = maze_generator.shortest_path()
         print("Maze generation complete.")
@@ -117,17 +169,22 @@ def main() -> int:
             print(f"Error writing output file: {e}", file=sys.stderr)
             return 1
         print(f"Maze saved to {config['OUTPUT_FILE']}")
-        # binary_grid = maze_generator.get_binary_grid()
-        # maze = maze_generator.get_structure()
         print("Maze:")
-        # print_grid(hex_grid)
-        # print_grid(binary_grid)
         print(shortest_path)
-        MazeApp(maze_generator).run()
+        if config["ENABLE_TUI"]:
+            try:
+                from graphic_visualizer import MazeApp
+            except ImportError as e:
+                print(_missing_dependency_message(e), file=sys.stderr)
+                return 1
+            MazeApp(maze_generator).run()
 
         return 0
-    except ValueError as e:
-        print(f"Error initializing maze generator: {e}", file=sys.stderr)
+    except (ValueError, TypeError, KeyError, OSError) as e:
+        print(f"Error during maze generation: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Unexpected runtime error: {e}", file=sys.stderr)
         return 1
 
 
