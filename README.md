@@ -346,7 +346,7 @@ path = generator.shortest_path()
 - GitHub (repository hosting, branching, pull requests, code reviews)
 - Slack (team communication and coordination)
 - VS Code (development environment)
-- Antigravity (AI-assisted coding support)
+- Antigravity
 
 ## Git Workflow (Binôme)
 
@@ -421,7 +421,7 @@ git push --force-with-lease
   - https://weblog.jamisbuck.org/2011/2/7/maze-generation-algorithm-recap
 
 ### AI usage disclosure (required)
-- **Tools used:** GitHub Copilot (GPT-5.3-Codex)
+- **Tools used:** GitHub Copilot
 - **Used for:** refactoring, docstring normalization, robustness checks,
   and README updates.
 - **Not used for:** blind integration without manual review.

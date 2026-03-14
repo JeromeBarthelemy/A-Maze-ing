@@ -6,6 +6,7 @@ import subprocess
 import sys
 
 import pytest
+from pydantic import ValidationError
 
 from mazegen import MazeGenerator, WallBits
 
@@ -74,15 +75,11 @@ def test_all_cells_reachable_in_perfect_maze() -> None:
     assert len(visited) == width * height
 
 
-def test_single_cell_maze_path() -> None:
-    """Handle single-cell maze edge case for direct API usage."""
+def test_single_cell_maze_entry_equals_exit_raises() -> None:
+    """Reject entry == exit via Pydantic validation."""
     generator = MazeGenerator(width=1, height=1, seed=42, perfect=True)
-    generator.generate(entry=(0, 0), exit_=(0, 0))
-
-    path = generator.shortest_path()
-    assert path == ""
-    cell = generator.get_structure()[0][0]
-    assert cell.is_on_path
+    with pytest.raises(ValidationError, match="must differ"):
+        generator.generate(entry=(0, 0), exit_=(0, 0))
 
 
 def test_logo_not_placed_when_maze_too_small(
@@ -94,7 +91,7 @@ def test_logo_not_placed_when_maze_too_small(
     generator.generate(entry=(0, 0), exit_=(4, 3))
 
     captured = capsys.readouterr()
-    assert "Error: Maze too small for 42 logo" in captured.err
+    assert "Error: Maze too small for 42 logo" in captured.out
     assert not generator._logo_placed
 
 
@@ -242,3 +239,35 @@ def test_output_validator_accepts_generated_output(tmp_path: Path) -> None:
         f"stdout:\n{result.stdout}\n"
         f"stderr:\n{result.stderr}"
     )
+
+
+def test_invalid_width_zero_raises() -> None:
+    """Reject width=0 via Pydantic validation."""
+    with pytest.raises(ValidationError):
+        MazeGenerator(width=0, height=5, seed=42, perfect=True)
+
+
+def test_invalid_height_negative_raises() -> None:
+    """Reject negative height via Pydantic validation."""
+    with pytest.raises(ValidationError):
+        MazeGenerator(width=5, height=-1, seed=42, perfect=True)
+
+
+def test_invalid_ratio_out_of_range_raises() -> None:
+    """Reject ratio outside [0.0, 1.0] via Pydantic validation."""
+    with pytest.raises(ValidationError):
+        MazeGenerator(width=5, height=5, seed=42, ratio=1.5)
+
+
+def test_entry_out_of_bounds_raises() -> None:
+    """Reject entry coordinates outside maze dimensions."""
+    generator = MazeGenerator(width=5, height=5, seed=42, perfect=True)
+    with pytest.raises(ValidationError):
+        generator.generate(entry=(10, 10), exit_=(4, 4))
+
+
+def test_entry_equals_exit_raises() -> None:
+    """Reject generate() when entry equals exit."""
+    generator = MazeGenerator(width=5, height=5, seed=42, perfect=True)
+    with pytest.raises(ValidationError, match="must differ"):
+        generator.generate(entry=(2, 2), exit_=(2, 2))

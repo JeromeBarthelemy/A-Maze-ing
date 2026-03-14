@@ -19,7 +19,7 @@ from textual.containers import (
     Grid,
 )
 
-from mazegen import MazeGenerator, WallBits, Cell
+from mazegen import MazeGenerator, GeneratorParams, WallBits, Cell
 
 
 class MazeCell(Static):
@@ -261,7 +261,7 @@ class MazeApp(App[None]):
         # first +/- adjustment starts from 0% instead of config value.
         if self.is_perfect:
             self.ratio = 0.0
-            self.maze_gen.params = self.maze_gen.params.__class__(
+            self.maze_gen.params = GeneratorParams(
                 width=self.maze_gen.params.width,
                 height=self.maze_gen.params.height,
                 seed=self.maze_gen.params.seed,
@@ -522,7 +522,7 @@ class MazeApp(App[None]):
                 self.maze_gen.params.width,
                 self.maze_gen.params.height,
             )
-            self.maze_gen.params = self.maze_gen.params.__class__(
+            self.maze_gen.params = GeneratorParams(
                 width=self.maze_gen.params.width,
                 height=self.maze_gen.params.height,
                 seed=self.maze_gen.params.seed,
@@ -636,7 +636,7 @@ class MazeApp(App[None]):
         if self._is_mounted:
             self._update_status_widget()
             if not self.is_perfect and self.maze_gen.params.perfect:
-                self.maze_gen.params = self.maze_gen.params.__class__(
+                self.maze_gen.params = GeneratorParams(
                     width=self.maze_gen.params.width,
                     height=self.maze_gen.params.height,
                     seed=self.maze_gen.params.seed,
@@ -677,7 +677,7 @@ class MazeApp(App[None]):
         if new_w == current_w and new_h == current_h:
             return
 
-        self.maze_gen.params = self.maze_gen.params.__class__(
+        self.maze_gen.params = GeneratorParams(
             width=new_w,
             height=new_h,
             seed=self.maze_gen.params.seed,

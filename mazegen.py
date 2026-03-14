@@ -13,12 +13,16 @@ Example:
 
 from __future__ import annotations
 
+import copy
 from collections import deque
 from dataclasses import dataclass
 from enum import IntFlag
 import random
 import sys
 from typing import Optional
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+from typing_extensions import Self
 
 # Logo "42" pattern (5 rows x 7 columns)
 # 1 = logo cell (closed), 0 = normal maze cell
@@ -129,15 +133,59 @@ Coordinate = tuple[int, int]
 MazeGrid = list[list[Cell]]
 
 
-@dataclass(frozen=True, slots=True)
-class GeneratorParams:
-    """Input parameters for maze generation."""
+class GeneratorParams(BaseModel, frozen=True):
+    """Input parameters for maze generation.
 
-    width: int
-    height: int
+    Validated via Pydantic so that standalone usage of the
+    ``mazegen`` package rejects invalid values early.
+    """
+
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
     seed: Optional[int] = None
     perfect: bool = True
-    ratio: float = 0.1
+    ratio: float = Field(default=0.1, ge=0.0, le=1.0)
+    entry: Optional[tuple[int, int]] = None
+    exit_: Optional[tuple[int, int]] = None
+
+    @field_validator("entry", "exit_")
+    @classmethod
+    def validate_coords(
+        cls,
+        v: Optional[tuple[int, int]],
+        info: object,
+    ) -> Optional[tuple[int, int]]:
+        """Ensure coordinates are non-negative and within maze bounds."""
+        if v is None:
+            return v
+        x, y = v
+        if x < 0 or y < 0:
+            raise ValueError(
+                f"Coordinates must be non-negative, got {v}"
+            )
+        data = getattr(info, "data", {})
+        w = data.get("width")
+        h = data.get("height")
+        if w is not None and x >= w:
+            raise ValueError(
+                f"X coordinate {x} out of bounds (width={w})"
+            )
+        if h is not None and y >= h:
+            raise ValueError(
+                f"Y coordinate {y} out of bounds (height={h})"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def validate_entry_exit_differ(self) -> Self:
+        """Reject configurations where entry equals exit."""
+        if self.entry is not None and self.exit_ is not None:
+            if self.entry == self.exit_:
+                raise ValueError(
+                    f"Entry {self.entry} and exit {self.exit_}"
+                    " must differ"
+                )
+        return self
 
 
 class MazeGenerator:
@@ -354,8 +402,7 @@ class MazeGenerator:
             print(
                 f"Error: Maze too small for 42 logo "
                 f"(minimum size: {LOGO_WIDTH + 1}x{LOGO_HEIGHT + 1}, "
-                f"current: {self.params.width}x{self.params.height})",
-                file=sys.stderr,
+                f"current: {self.params.width}x{self.params.height})"
             )
             return False
 
@@ -396,6 +443,17 @@ class MazeGenerator:
             entry: Entry cell coordinates.
             exit_: Exit cell coordinates.
         """
+        # Recreate params with coordinates so Pydantic validates
+        # bounds and entry != exit automatically.
+        self.params = GeneratorParams(
+            width=self.params.width,
+            height=self.params.height,
+            seed=self.params.seed,
+            perfect=self.params.perfect,
+            ratio=self.params.ratio,
+            entry=entry,
+            exit_=exit_,
+        )
         self._entry = entry
         self._exit = exit_
         self.initialize_maze_grid()
@@ -434,7 +492,6 @@ class MazeGenerator:
 
         # Cache the perfect maze state in case we want to adjust imperfection
         # without redesigning the path
-        import copy
         self._maze_cache = copy.deepcopy(self._maze)
         # Ratio cache is tied to one generated base maze only.
         # Reset it when a new maze is generated.
@@ -470,13 +527,14 @@ class MazeGenerator:
         Args:
             ratio: New ratio of extra walls to remove.
         """
-        import copy
-        self.params = self.params.__class__(
+        self.params = GeneratorParams(
             width=self.params.width,
             height=self.params.height,
             seed=self.params.seed,
             perfect=self.params.perfect,
             ratio=ratio,
+            entry=self.params.entry,
+            exit_=self.params.exit_,
         )
 
         if not hasattr(self, "_ratio_cache"):

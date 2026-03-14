@@ -12,18 +12,7 @@ from pydantic import (
 from typing import Tuple
 from typing_extensions import Self
 
-# Logo "42" dimensions (must match mazegen.py)
-LOGO_WIDTH = 7
-LOGO_HEIGHT = 5
-
-# Logo "42" pattern (1 = logo cell, 0 = normal maze cell)
-LOGO_42_PATTERN = [
-    [1, 0, 0, 0, 1, 1, 1],  # row 0
-    [1, 0, 0, 0, 0, 0, 1],  # row 1
-    [1, 1, 1, 0, 1, 1, 1],  # row 2
-    [0, 0, 1, 0, 1, 0, 0],  # row 3
-    [0, 0, 1, 0, 1, 1, 1],  # row 4
-]
+from mazegen import LOGO_WIDTH, LOGO_HEIGHT, LOGO_42_PATTERN
 
 
 class MazeConfig(BaseModel):
