@@ -28,10 +28,10 @@ debug: check-uv
 	uv run python -m pdb $(MAIN) $(CONFIG)
 
 test: check-uv
-	uv run pytest -q
+	uv run --extra dev python -m pytest -q
 
 test-verbose: check-uv
-	uv run pytest -v
+	uv run --extra dev python -m pytest -v
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +

@@ -95,7 +95,7 @@ make test
 make test-verbose
 
 # direct usage
-uv run pytest -q
+uv run --extra dev python -m pytest -q
 ```
 
 ### Clean
