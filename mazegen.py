@@ -18,7 +18,6 @@ from collections import deque
 from dataclasses import dataclass
 from enum import IntFlag
 import random
-import sys
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
