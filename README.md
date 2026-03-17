@@ -351,8 +351,7 @@ path = generator.shortest_path()
 - GitHub (repository hosting, branching, pull requests, code reviews)
 - Slack (team communication and coordination)
 - VS Code (development environment)
-- Antigravity
-
+- Pytest (unit tests)
 ## Git Workflow (Binôme)
 
 ### Branch strategy
@@ -399,7 +398,7 @@ git push --force-with-lease
 ├── a_maze_ing.py              # CLI entry point
 ├── config_model.py            # Pydantic config validation model
 ├── graphic_visualizer.py      # Textual TUI maze visualizer
-├── graphic_visualizer/        # Visualizer resources/cache directory
+├── ascii_visualizer.py        # Pure ASCII maze visualizer
 ├── mazegen.py                 # Reusable generator module
 ├── tools.py                   # Utility helpers
 ├── tests/                     # Pytest unit tests
@@ -411,8 +410,6 @@ git push --force-with-lease
 ├── README.md                  # This file
 ├── output_validator.py        # Provided validation script
 ├── en.subject.pdf             # Project subject
-├── .venv/                     # Virtual environment (auto-created by uv)
-└── .git/                      # Git repository metadata
 ```
 
 ## Resources
@@ -424,16 +421,20 @@ git push --force-with-lease
 - Graph/maze algorithms:
   - https://en.wikipedia.org/wiki/Maze_generation_algorithm
   - https://weblog.jamisbuck.org/2011/2/7/maze-generation-algorithm-recap
+- Maze solving algorithms:
+  - https://fr.wikipedia.org/wiki/R%C3%A9solution_de_labyrinthe
+  - https://www.datacamp.com/fr/tutorial/breadth-first-search-in-python
 
 ### AI usage disclosure (required)
 - **Tools used:** GitHub Copilot
 - **Used for:** refactoring, docstring normalization, robustness checks,
   and README updates.
 - **Not used for:** blind integration without manual review.
-- **Validation process:** `flake8`, `mypy --strict`, runtime checks via
-  CLI and TUI execution.
+- **Validation process:** `flake8`, `mypy --strict`.
 
 ## Bonus
+- Support multiple maze generation algorithms.
+- Support multiple maze visualizers.
 - Theme switching in the visualizer (`c`)
 - Dedicated `42` pattern color cycling (`f`)
 - Fixed/random entry-exit toggle (`i`)
@@ -453,10 +454,6 @@ git push --force-with-lease
 - ✅ Textual visualizer with entry/exit/pattern/path highlighting
 - ✅ Packaging (`make package`) for reusable `mazegen` module
 - ✅ Linting/typing workflow (`make lint`, `make lint-strict`)
-
-**Open items:**
-- ⬜ Expand automated test coverage
-- ⬜ Final evaluator-oriented polishing/documentation
 
 ## Submission Notes
 - Ensure `README.md` is complete and up to date

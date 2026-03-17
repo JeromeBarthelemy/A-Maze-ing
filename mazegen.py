@@ -7,7 +7,7 @@ Example:
     from mazegen import MazeGenerator
 
     generator = MazeGenerator(width=20, height=15, seed=42, perfect=True)
-    maze = generator.generate_kruskal(entry=(0, 0), exit_=(19, 14))
+    maze = generator.generate(entry=(0, 0), exit_=(19, 14))
     path = generator.shortest_path()
 """
 
@@ -428,7 +428,17 @@ class MazeGenerator:
         return True
 
     def move_east(self, y: int, x: int) -> None:
-        """Open Wall on East"""
+        """
+        Remove the east wall of the cell at (y, x) and the west wall of its
+        eastern neighbor, then recursively explore.
+
+        Args:
+            y (int): Row index of the current cell.
+            x (int): Column index of the current cell.
+
+        Returns:
+            None
+        """
         if (
             x + 1 < int(self.params.width)
             and not self._maze[y][x + 1].visited
@@ -439,7 +449,17 @@ class MazeGenerator:
             self._explore_maze(y, x + 1)
 
     def move_south(self, y: int, x: int) -> None:
-        """Open Wall on South"""
+        """
+        Remove the south wall of the cell at (y, x) and the north wall of its
+        southern neighbor, then recursively explore.
+
+        Args:
+            y (int): Row index of the current cell.
+            x (int): Column index of the current cell.
+
+        Returns:
+            None
+        """
         if (
             y + 1 < int(self.params.height)
             and not self._maze[y + 1][x].visited
@@ -450,7 +470,17 @@ class MazeGenerator:
             self._explore_maze(y + 1, x)
 
     def move_west(self, y: int, x: int) -> None:
-        """Open Wall on West"""
+        """
+        Remove the west wall of the cell at (y, x) and the east wall of its
+        western neighbor, then recursively explore.
+
+        Args:
+            y (int): Row index of the current cell.
+            x (int): Column index of the current cell.
+
+        Returns:
+            None
+        """
         if (
             x > 0
             and not self._maze[y][x - 1].visited
@@ -461,7 +491,17 @@ class MazeGenerator:
             self._explore_maze(y, x - 1)
 
     def move_north(self, y: int, x: int) -> None:
-        """Open Wall on North"""
+        """
+        Remove the north wall of the cell at (y, x) and the south wall of its
+        northern neighbor, then recursively explore.
+
+        Args:
+            y (int): Row index of the current cell.
+            x (int): Column index of the current cell.
+
+        Returns:
+            None
+        """
         if (
             y > 0
             and not self._maze[y - 1][x].visited
@@ -472,7 +512,17 @@ class MazeGenerator:
             self._explore_maze(y - 1, x)
 
     def _explore_maze(self, y: int, x: int) -> None:
-        """Initialise Labyrinth"""
+        """
+        Recursively explore and carve passages in the maze
+        using randomized DFS.
+
+        Args:
+            y (int): Row index of the current cell.
+            x (int): Column index of the current cell.
+
+        Returns:
+            None
+        """
         desorder: list[int] = list(range(4))
         random.shuffle(desorder)
         self._maze[y][x].visited = True
@@ -517,37 +567,29 @@ class MazeGenerator:
             self._place_logo_42()
 
         if self.params.algo == "dfs":
-            self.generate_dfs(entry, exit_)
+            self.generate_dfs()
         elif self.params.algo == "kruskal":
-            self.generate_kruskal(entry, exit_)
+            self.generate_kruskal()
         else:
-            self.generate_kruskal(entry, exit_)
+            self.generate_kruskal()
         return
 
-    def generate_dfs(self, entry: Coordinate, exit_: Coordinate) -> None:
+    def generate_dfs(self) -> None:
         """Generate a maze from entry to exit.
 
         Uses a depth-first search with backtracking to carve passages,
         producing a perfect maze.
-
-        Args:
-            entry: Entry cell coordinates.
-            exit_: Exit cell coordinates.
         """
         if self._place_logo_42() and self._maze[0][0].is_pattern:
             self._explore_maze(0, 1)
         else:
             self._explore_maze(0, 0)
 
-    def generate_kruskal(self, entry: Coordinate, exit_: Coordinate) -> None:
+    def generate_kruskal(self) -> None:
         """Generate a maze from entry to exit.
 
         Uses randomized Kruskal on the grid graph and Union-Find to avoid
         cycles, producing a perfect maze.
-
-        Args:
-            entry: Entry cell coordinates.
-            exit_: Exit cell coordinates.
         """
 
         edges = self._build_candidate_edges()
@@ -723,8 +765,16 @@ class MazeGenerator:
         return reachable_neighbors
 
     def _is_creating_large_room(self, cell: Cell, direction: WallBits) -> bool:
-        """Check if removing a wall creates a room larger than 2x3.
-        This prevents creating fully open areas of 3x3, 4x2, or 2x4.
+        """
+        Check if removing a wall would create a room larger than allowed
+        (e.g., 3x3, 4x2, or 2x4).
+
+        Args:
+            cell (Cell): The cell to check from.
+            direction (WallBits): The direction of the wall to remove.
+
+        Returns:
+            bool: True if a large room would be created, False otherwise.
         """
         r, c = cell.row, cell.col
 
@@ -800,7 +850,19 @@ class MazeGenerator:
         height: int,
         test_wall: tuple[int, int, WallBits],
     ) -> bool:
-        """Check if a specific rectangular area in the maze is fully open."""
+        """
+        Check if a rectangular area in the maze is fully open (no walls).
+
+        Args:
+            start_r (int): Starting row of the area.
+            start_c (int): Starting column of the area.
+            width (int): Width of the area.
+            height (int): Height of the area.
+            test_wall (tuple[int, int, WallBits]): Wall considered for removal.
+
+        Returns:
+            bool: True if the area is fully open, False otherwise.
+        """
         if start_r < 0 or start_c < 0:
             return False
         if start_r + height > self.params.height:
