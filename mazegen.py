@@ -7,7 +7,7 @@ Example:
     from mazegen import MazeGenerator
 
     generator = MazeGenerator(width=20, height=15, seed=42, perfect=True)
-    maze = generator.generate(entry=(0, 0), exit_=(19, 14))
+    maze = generator.generate_kruskal(entry=(0, 0), exit_=(19, 14))
     path = generator.shortest_path()
 """
 
@@ -146,6 +146,7 @@ class GeneratorParams(BaseModel, frozen=True):
     ratio: float = Field(default=0.1, ge=0.0, le=1.0)
     entry: Optional[tuple[int, int]] = None
     exit_: Optional[tuple[int, int]] = None
+    algo: str = "kruskal"
 
     @field_validator("entry", "exit_")
     @classmethod
@@ -159,20 +160,14 @@ class GeneratorParams(BaseModel, frozen=True):
             return v
         x, y = v
         if x < 0 or y < 0:
-            raise ValueError(
-                f"Coordinates must be non-negative, got {v}"
-            )
+            raise ValueError(f"Coordinates must be non-negative, got {v}")
         data = getattr(info, "data", {})
         w = data.get("width")
         h = data.get("height")
         if w is not None and x >= w:
-            raise ValueError(
-                f"X coordinate {x} out of bounds (width={w})"
-            )
+            raise ValueError(f"X coordinate {x} out of bounds (width={w})")
         if h is not None and y >= h:
-            raise ValueError(
-                f"Y coordinate {y} out of bounds (height={h})"
-            )
+            raise ValueError(f"Y coordinate {y} out of bounds (height={h})")
         return v
 
     @model_validator(mode="after")
@@ -181,8 +176,7 @@ class GeneratorParams(BaseModel, frozen=True):
         if self.entry is not None and self.exit_ is not None:
             if self.entry == self.exit_:
                 raise ValueError(
-                    f"Entry {self.entry} and exit {self.exit_}"
-                    " must differ"
+                    f"Entry {self.entry} and exit {self.exit_}" " must differ"
                 )
         return self
 
@@ -203,6 +197,7 @@ class MazeGenerator:
         seed: Optional[int] = None,
         perfect: bool = True,
         ratio: float = 0.1,
+        algo: str = "kruskal",
     ) -> None:
         """Initialize generator parameters and internal placeholders.
 
@@ -224,6 +219,7 @@ class MazeGenerator:
             seed=seed,
             perfect=perfect,
             ratio=ratio,
+            algo=algo,
         )
         self._show_logo = True
         random.seed(self.params.seed)
@@ -339,8 +335,7 @@ class MazeGenerator:
             True if the maze can fit the logo, False otherwise.
         """
         return (
-            self.params.width > LOGO_WIDTH
-            and self.params.height > LOGO_HEIGHT
+            self.params.width > LOGO_WIDTH and self.params.height > LOGO_HEIGHT
         )
 
     def _is_in_logo(self, x: int, y: int) -> bool:
@@ -432,11 +427,70 @@ class MazeGenerator:
         self._logo_cell_count = len(pattern_cells)
         return True
 
+    def move_east(self, y: int, x: int) -> None:
+        """Open Wall on East"""
+        if (
+            x + 1 < int(self.params.width)
+            and not self._maze[y][x + 1].visited
+            and not self._maze[y][x + 1].is_pattern
+        ):
+            self._maze[y][x].remove_wall(WallBits.EAST)
+            self._maze[y][x + 1].remove_wall(WallBits.WEST)
+            self._explore_maze(y, x + 1)
+
+    def move_south(self, y: int, x: int) -> None:
+        """Open Wall on South"""
+        if (
+            y + 1 < int(self.params.height)
+            and not self._maze[y + 1][x].visited
+            and not self._maze[y + 1][x].is_pattern
+        ):
+            self._maze[y][x].remove_wall(WallBits.SOUTH)
+            self._maze[y + 1][x].remove_wall(WallBits.NORTH)
+            self._explore_maze(y + 1, x)
+
+    def move_west(self, y: int, x: int) -> None:
+        """Open Wall on West"""
+        if (
+            x > 0
+            and not self._maze[y][x - 1].visited
+            and not self._maze[y][x - 1].is_pattern
+        ):
+            self._maze[y][x].remove_wall(WallBits.WEST)
+            self._maze[y][x - 1].remove_wall(WallBits.EAST)
+            self._explore_maze(y, x - 1)
+
+    def move_north(self, y: int, x: int) -> None:
+        """Open Wall on North"""
+        if (
+            y > 0
+            and not self._maze[y - 1][x].visited
+            and not self._maze[y - 1][x].is_pattern
+        ):
+            self._maze[y][x].remove_wall(WallBits.NORTH)
+            self._maze[y - 1][x].remove_wall(WallBits.SOUTH)
+            self._explore_maze(y - 1, x)
+
+    def _explore_maze(self, y: int, x: int) -> None:
+        """Initialise Labyrinth"""
+        desorder: list[int] = list(range(4))
+        random.shuffle(desorder)
+        self._maze[y][x].visited = True
+        for i in range(4):
+            if desorder[i] == 0:
+                self.move_east(y, x)
+            elif desorder[i] == 1:
+                self.move_south(y, x)
+            elif desorder[i] == 2:
+                self.move_west(y, x)
+            elif desorder[i] == 3:
+                self.move_north(y, x)
+
     def generate(self, entry: Coordinate, exit_: Coordinate) -> None:
         """Generate a maze from entry to exit.
 
-        Uses randomized Kruskal on the grid graph and Union-Find to avoid
-        cycles, producing a perfect maze.
+        Uses a depth-first search with backtracking to carve passages,
+        producing a perfect maze.
 
         Args:
             entry: Entry cell coordinates.
@@ -450,6 +504,7 @@ class MazeGenerator:
             seed=self.params.seed,
             perfect=self.params.perfect,
             ratio=self.params.ratio,
+            algo=self.params.algo,
             entry=entry,
             exit_=exit_,
         )
@@ -460,6 +515,40 @@ class MazeGenerator:
         # Place 42 logo if requested
         if self._show_logo:
             self._place_logo_42()
+
+        if self.params.algo == "dfs":
+            self.generate_dfs(entry, exit_)
+        elif self.params.algo == "kruskal":
+            self.generate_kruskal(entry, exit_)
+        else:
+            self.generate_kruskal(entry, exit_)
+        return
+
+    def generate_dfs(self, entry: Coordinate, exit_: Coordinate) -> None:
+        """Generate a maze from entry to exit.
+
+        Uses a depth-first search with backtracking to carve passages,
+        producing a perfect maze.
+
+        Args:
+            entry: Entry cell coordinates.
+            exit_: Exit cell coordinates.
+        """
+        if self._place_logo_42() and self._maze[0][0].is_pattern:
+            self._explore_maze(0, 1)
+        else:
+            self._explore_maze(0, 0)
+
+    def generate_kruskal(self, entry: Coordinate, exit_: Coordinate) -> None:
+        """Generate a maze from entry to exit.
+
+        Uses randomized Kruskal on the grid graph and Union-Find to avoid
+        cycles, producing a perfect maze.
+
+        Args:
+            entry: Entry cell coordinates.
+            exit_: Exit cell coordinates.
+        """
 
         edges = self._build_candidate_edges()
         random.shuffle(edges)
@@ -532,6 +621,7 @@ class MazeGenerator:
             seed=self.params.seed,
             perfect=self.params.perfect,
             ratio=ratio,
+            algo=self.params.algo,
             entry=self.params.entry,
             exit_=self.params.exit_,
         )
@@ -565,7 +655,7 @@ class MazeGenerator:
         if closest_smaller_ratio is not None:
             self._maze = copy.deepcopy(
                 self._ratio_cache[closest_smaller_ratio]
-                )
+            )
         elif hasattr(self, "_maze_cache") and self._maze_cache:
             self._maze = copy.deepcopy(self._maze_cache)
 
@@ -632,9 +722,7 @@ class MazeGenerator:
 
         return reachable_neighbors
 
-    def _is_creating_large_room(
-        self, cell: Cell, direction: WallBits
-    ) -> bool:
+    def _is_creating_large_room(self, cell: Cell, direction: WallBits) -> bool:
         """Check if removing a wall creates a room larger than 2x3.
         This prevents creating fully open areas of 3x3, 4x2, or 2x4.
         """
@@ -653,39 +741,64 @@ class MazeGenerator:
 
         for y_offset in range(-2, 1):
             for x_offset in range(-2, 1):
-                if (r1 >= r + y_offset and r1 < r + y_offset + 3 and
-                        c1 >= c + x_offset and c1 < c + x_offset + 3 and
-                        r2 >= r + y_offset and r2 < r + y_offset + 3 and
-                        c2 >= c + x_offset and c2 < c + x_offset + 3):
-                    if self._is_area_open(r + y_offset, c + x_offset,
-                                          3, 3, test_wall):
+                if (
+                    r1 >= r + y_offset
+                    and r1 < r + y_offset + 3
+                    and c1 >= c + x_offset
+                    and c1 < c + x_offset + 3
+                    and r2 >= r + y_offset
+                    and r2 < r + y_offset + 3
+                    and c2 >= c + x_offset
+                    and c2 < c + x_offset + 3
+                ):
+                    if self._is_area_open(
+                        r + y_offset, c + x_offset, 3, 3, test_wall
+                    ):
                         return True
 
         for y_offset in range(-1, 1):
             for x_offset in range(-3, 1):
-                if (r1 >= r + y_offset and r1 < r + y_offset + 2 and
-                        c1 >= c + x_offset and c1 < c + x_offset + 4 and
-                        r2 >= r + y_offset and r2 < r + y_offset + 2 and
-                        c2 >= c + x_offset and c2 < c + x_offset + 4):
-                    if self._is_area_open(r + y_offset, c + x_offset,
-                                          4, 2, test_wall):
+                if (
+                    r1 >= r + y_offset
+                    and r1 < r + y_offset + 2
+                    and c1 >= c + x_offset
+                    and c1 < c + x_offset + 4
+                    and r2 >= r + y_offset
+                    and r2 < r + y_offset + 2
+                    and c2 >= c + x_offset
+                    and c2 < c + x_offset + 4
+                ):
+                    if self._is_area_open(
+                        r + y_offset, c + x_offset, 4, 2, test_wall
+                    ):
                         return True
 
         for y_offset in range(-3, 1):
             for x_offset in range(-1, 1):
-                if (r1 >= r + y_offset and r1 < r + y_offset + 4 and
-                        c1 >= c + x_offset and c1 < c + x_offset + 2 and
-                        r2 >= r + y_offset and r2 < r + y_offset + 4 and
-                        c2 >= c + x_offset and c2 < c + x_offset + 2):
-                    if self._is_area_open(r + y_offset, c + x_offset,
-                                          2, 4, test_wall):
+                if (
+                    r1 >= r + y_offset
+                    and r1 < r + y_offset + 4
+                    and c1 >= c + x_offset
+                    and c1 < c + x_offset + 2
+                    and r2 >= r + y_offset
+                    and r2 < r + y_offset + 4
+                    and c2 >= c + x_offset
+                    and c2 < c + x_offset + 2
+                ):
+                    if self._is_area_open(
+                        r + y_offset, c + x_offset, 2, 4, test_wall
+                    ):
                         return True
 
         return False
 
     def _is_area_open(
-        self, start_r: int, start_c: int, width: int, height: int,
-        test_wall: tuple[int, int, WallBits]
+        self,
+        start_r: int,
+        start_c: int,
+        width: int,
+        height: int,
+        test_wall: tuple[int, int, WallBits],
     ) -> bool:
         """Check if a specific rectangular area in the maze is fully open."""
         if start_r < 0 or start_c < 0:
@@ -918,9 +1031,8 @@ class MazeGenerator:
         return [[cell.to_binary() for cell in row] for row in self._maze]
 
     def _remove_extra_walls(
-                            self,
-                            target_ratio: Optional[float] = None
-                            ) -> None:
+        self, target_ratio: Optional[float] = None
+    ) -> None:
         """Remove extra walls to make the maze imperfect (add cycles).
 
         Args:
@@ -976,8 +1088,9 @@ class MazeGenerator:
         perfect_maze_passages = active_cells - 1
 
         # Original candidates that COULD be removed in a perfect maze:
-        original_removable_walls = (total_possible_removals -
-                                    perfect_maze_passages)
+        original_removable_walls = (
+            total_possible_removals - perfect_maze_passages
+        )
 
         if original_removable_walls <= 0:
             return

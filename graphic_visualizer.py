@@ -168,6 +168,7 @@ class MazeApp(App[None]):
     TITLE = "A-Maze-ing Maze Viewer"
     BINDINGS = [
         ("q", "quit", "Quit"),
+        ("a", "toggle_algo", "Toggle Algorithm"),
         ("t", "toggle_path", "Show/hide path"),
         ("c", "cycle_theme", "Theme"),
         ("w", "cycle_wall_color", "Wall"),
@@ -213,6 +214,7 @@ class MazeApp(App[None]):
     is_perfect = reactive(True)
     random_io = reactive(False)
     ratio = reactive(0.10)
+    algo = reactive("kruskal")
 
     CSS = """
     #maze-container {
@@ -257,6 +259,7 @@ class MazeApp(App[None]):
         super().__init__(**kwargs)
         self.maze_gen = maze_gen
         self.is_perfect = self.maze_gen.params.perfect
+        self.algo = self.maze_gen.params.algo
         # In perfect mode, ratio is irrelevant; normalize it to 0.0 so
         # first +/- adjustment starts from 0% instead of config value.
         if self.is_perfect:
@@ -267,6 +270,7 @@ class MazeApp(App[None]):
                 seed=self.maze_gen.params.seed,
                 perfect=self.maze_gen.params.perfect,
                 ratio=0.0,
+                algo=self.maze_gen.params.algo,
             )
         else:
             self.ratio = self.maze_gen.params.ratio
@@ -437,15 +441,12 @@ class MazeApp(App[None]):
         if exit_out_of_bounds or exit_invalid:
             for candidate in (
                 (max_x, max_y),  # bottom-right
-                (0, max_y),      # bottom-left
-                (max_x, 0),      # top-right
-                (0, 0),          # top-left
+                (0, max_y),  # bottom-left
+                (max_x, 0),  # top-right
+                (0, 0),  # top-left
             ):
-                if (
-                    candidate != safe_entry
-                    and not self.maze_gen._is_in_logo(
-                        candidate[0], candidate[1]
-                    )
+                if candidate != safe_entry and not self.maze_gen._is_in_logo(
+                    candidate[0], candidate[1]
                 ):
                     return safe_entry, candidate
 
@@ -454,8 +455,12 @@ class MazeApp(App[None]):
 
     def _status_text(self) -> str:
         """Build the full status text shown under the header."""
-        mode = ("Parfait" if self.is_perfect
-                else f"Imparfait ({int(self.ratio * 100)}%)")
+        mode = (
+            "Parfait"
+            if self.is_perfect
+            else f"Imparfait ({int(self.ratio * 100)}%)"
+        )
+        algo = "Kruskal" if self.algo == "kruskal" else "DFS"
         io_mode = (
             "Entrées/Sorties fixes"
             if not self.random_io
@@ -465,7 +470,7 @@ class MazeApp(App[None]):
         entry = self._format_coord(self.maze_gen._entry)
         exit_ = self._format_coord(self.maze_gen._exit)
         return (
-            f"[Mode] {mode} | {io_mode} | "
+            f"[Mode] {mode} | {algo} | {io_mode} | "
             f"Taille: {size} | Entrée: {entry} | Sortie: {exit_}"
         )
 
@@ -528,6 +533,7 @@ class MazeApp(App[None]):
                 seed=self.maze_gen.params.seed,
                 perfect=self.is_perfect,
                 ratio=self.ratio,
+                algo=self.maze_gen.params.algo,
             )
             # 2. Determine entry/exit positions
             if self.random_io:
@@ -568,6 +574,7 @@ class MazeApp(App[None]):
             self._update_status_widget()
         except Exception as e:
             import traceback
+
             with open("/tmp/maze_error.log", "a") as f:
                 f.write(f"Error in action_regenerate: {e}\n")
                 traceback.print_exc(file=f)
@@ -575,6 +582,25 @@ class MazeApp(App[None]):
     def action_toggle_random_io(self) -> None:
         """Toggle fixed/random entry/exit mode for next regeneration."""
         self.random_io = not self.random_io
+
+    async def action_toggle_algo(self) -> None:
+        """Toggle maze generation algorithm."""
+        if self.maze_gen.params.algo == "kruskal":
+            self.algo = "dfs"
+            self.is_perfect = True  # DFS only supports perfect mazes
+        else:
+            self.algo = "kruskal"
+        self.maze_gen.params = GeneratorParams(
+            width=self.maze_gen.params.width,
+            height=self.maze_gen.params.height,
+            seed=self.maze_gen.params.seed,
+            perfect=self.is_perfect,
+            ratio=self.ratio,
+            algo=self.algo,
+        )
+        await self.action_regenerate(force_rebuild=True)
+        if self._is_mounted:
+            self.refresh_maze_view()
 
     def action_toggle_path(self) -> None:
         """Toggle solution path visibility and refresh maze cells."""
@@ -653,7 +679,7 @@ class MazeApp(App[None]):
     def action_increase_ratio(self) -> None:
         """Increase imperfection ratio by 5% up to 100%."""
         new_ratio = min(1.0, round(self.ratio + 0.05, 2))
-        if new_ratio != self.ratio:
+        if new_ratio != self.ratio and self.algo == "kruskal":
             # Editing ratio means the user wants imperfect mode.
             if self.is_perfect:
                 self.is_perfect = False
@@ -662,7 +688,7 @@ class MazeApp(App[None]):
     def action_decrease_ratio(self) -> None:
         """Decrease imperfection ratio by 5% down to 0%."""
         new_ratio = max(0.0, round(self.ratio - 0.05, 2))
-        if new_ratio != self.ratio:
+        if new_ratio != self.ratio and self.algo == "kruskal":
             # Editing ratio means the user wants imperfect mode.
             if self.is_perfect:
                 self.is_perfect = False
@@ -683,6 +709,7 @@ class MazeApp(App[None]):
             seed=self.maze_gen.params.seed,
             perfect=self.is_perfect,
             ratio=self.ratio,
+            algo=self.maze_gen.params.algo,
         )
         await self.action_regenerate(force_rebuild=True)
 

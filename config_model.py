@@ -25,8 +25,10 @@ class MazeConfig(BaseModel):
     OUTPUT_FILE: str
     PERFECT: bool
     ENABLE_TUI: bool = False
+    ASCII_VISUALIZER: bool = False
     SEED: int = 42
     RATIO: float = Field(default=0.10, ge=0.0, le=1.0)
+    GENERATION_ALGO: str = "kruskal"
 
     @field_validator("ENTRY", "EXIT", mode="before")
     def parse_coords(cls, v: str | Tuple[int, int]) -> Tuple[int, int]:

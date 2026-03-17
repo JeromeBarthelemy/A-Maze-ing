@@ -1,11 +1,13 @@
 # Default configuration for A-Maze-ing
-WIDTH=29
-HEIGHT=12
+WIDTH=5
+HEIGHT=5
 ENTRY=0,0
-EXIT=28,11
+EXIT=4,4
 OUTPUT_FILE=maze.txt
 PERFECT=True
-ENABLE_TUI=False
+GENERATION_ALGO=dfs
+ENABLE_TUI=True
+ASCII_VISUALIZER=False
 SEED=42
 # RATIO is used only when PERFECT=False.
 # If PERFECT=True, the maze remains perfect (RATIO is ignored).

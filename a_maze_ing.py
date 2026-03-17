@@ -23,8 +23,7 @@ def _missing_dependency_message(error: ImportError) -> str:
         Human-readable instruction to install dependencies.
     """
     return (
-        f"Missing dependency: {error}. "
-        "Run `make install`, then `make run`."
+        f"Missing dependency: {error}. " "Run `make install`, then `make run`."
     )
 
 
@@ -40,6 +39,8 @@ class ParsedConfig(TypedDict):
     ENABLE_TUI: bool
     SEED: int
     RATIO: float
+    GENERATION_ALGO: str
+    ASCII_VISUALIZER: bool
 
 
 def parse_config(config_path: Path) -> ParsedConfig:
@@ -83,6 +84,8 @@ def parse_config(config_path: Path) -> ParsedConfig:
             "ENABLE_TUI": config.ENABLE_TUI,
             "SEED": config.SEED,
             "RATIO": config.RATIO,
+            "GENERATION_ALGO": config.GENERATION_ALGO,
+            "ASCII_VISUALIZER": config.ASCII_VISUALIZER,
         }
     except ValidationError as e:
         raise ValueError(f"Invalid config file format: {e}") from e
@@ -149,6 +152,7 @@ def main() -> int:
             seed=config["SEED"],
             perfect=config["PERFECT"],
             ratio=config["RATIO"],
+            algo=config["GENERATION_ALGO"],
         )
         print(f"Maze ready: {config['WIDTH']}x{config['HEIGHT']}")
         entry = config["ENTRY"]
@@ -172,12 +176,20 @@ def main() -> int:
         print("Maze:")
         print(shortest_path)
         if config["ENABLE_TUI"]:
-            try:
-                from graphic_visualizer import MazeApp
-            except ImportError as e:
-                print(_missing_dependency_message(e), file=sys.stderr)
-                return 1
-            MazeApp(maze_generator).run()
+            if not config["ASCII_VISUALIZER"]:
+                try:
+                    from graphic_visualizer import MazeApp
+                except ImportError as e:
+                    print(_missing_dependency_message(e), file=sys.stderr)
+                    return 1
+                MazeApp(maze_generator).run()
+            else:
+                try:
+                    from ascii_visualizer import ascii_visualizer
+                except ImportError as e:
+                    print(_missing_dependency_message(e), file=sys.stderr)
+                    return 1
+                ascii_visualizer(maze_generator)
 
         return 0
     except (ValueError, TypeError, KeyError, OSError) as e:
