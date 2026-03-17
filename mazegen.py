@@ -478,16 +478,12 @@ class MazeGenerator:
         self._maze[y][x].visited = True
         for i in range(4):
             if desorder[i] == 0:
-                i += 1
                 self.move_east(y, x)
             elif desorder[i] == 1:
-                i += 1
                 self.move_south(y, x)
             elif desorder[i] == 2:
-                i += 1
                 self.move_west(y, x)
             elif desorder[i] == 3:
-                i += 1
                 self.move_north(y, x)
 
     def generate(self, entry: Coordinate, exit_: Coordinate) -> None:
@@ -538,7 +534,10 @@ class MazeGenerator:
             entry: Entry cell coordinates.
             exit_: Exit cell coordinates.
         """
-        self._explore_maze(0, 0)
+        if self._place_logo_42() and self._maze[0][0].is_pattern:
+            self._explore_maze(0, 1)
+        else:
+            self._explore_maze(0, 0)
 
     def generate_kruskal(self, entry: Coordinate, exit_: Coordinate) -> None:
         """Generate a maze from entry to exit.

@@ -150,6 +150,9 @@ One `KEY=VALUE` per line. Lines starting with `#` are comments.
 - `SEED=<int>`
 - `RATIO=<float 0.0..1.0>`
 - `ENABLE_TUI=<True|False>` (launch Textual viewer after generation)
+- `GENERATION_ALGO=<dfs|kruskal>` (maze generation algorithm)
+- `ASCII_VISUALIZER=<True|False>` (visualizer choice)
+
 
 ### Example config
 ```ini
@@ -163,6 +166,8 @@ PERFECT=True
 SEED=42
 RATIO=0.1
 ENABLE_TUI=False
+GENERATION_ALGO=dfs
+ASCII_VISUALIZER=True
 ```
 
 ## Output File Format
