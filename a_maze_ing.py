@@ -185,11 +185,11 @@ def main() -> int:
                 MazeApp(maze_generator).run()
             else:
                 try:
-                    from ascii_visualizer import display_ascii_labyrinthe
+                    from ascii_visualizer import ascii_visualizer
                 except ImportError as e:
                     print(_missing_dependency_message(e), file=sys.stderr)
                     return 1
-                display_ascii_labyrinthe(maze_generator.get_structure())
+                ascii_visualizer(maze_generator)
 
         return 0
     except (ValueError, TypeError, KeyError, OSError) as e:
