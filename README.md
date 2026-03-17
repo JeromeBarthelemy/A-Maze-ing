@@ -226,7 +226,7 @@ EESSENNW...
   strictly larger than `7x5` (`WIDTH > 7` and `HEIGHT > 5`), closed cells
   forming the `42` pattern are injected.
 
-## Advance Visual Representation
+## Advanced Visual Representation
 - **Mode implemented:** Textual TUI (`graphic_visualizer.py`)
 - Must show:
   - walls
