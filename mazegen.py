@@ -473,7 +473,7 @@ class MazeGenerator:
 
     def _explore_maze(self, y: int, x: int) -> None:
         """Initialise Labyrinth"""
-        desorder: list = list(range(4))
+        desorder: list[int] = list(range(4))
         random.shuffle(desorder)
         self._maze[y][x].visited = True
         for i in range(4):
