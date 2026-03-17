@@ -1,7 +1,7 @@
 from mazegen import MazeGenerator, MazeGrid, Cell
 
 
-def one_cell_list(
+def generate_ascii_cell(
     width: int,
     height: int,
     cell: int,
@@ -11,8 +11,24 @@ def one_cell_list(
     is_pattern: bool,
     show_path: bool = False,
 ) -> list[list[str]]:
-    """Create a List From ont Cell"""
-    one_cell_list: list[list[str]] = [
+    """
+    Create an ASCII representation of a single maze cell.
+
+    Args:
+        width (int): Width of the cell.
+        height (int): Height of the cell.
+        cell (int): Bitmask representing the cell's walls.
+        is_entry (bool): True if the cell is the maze entry.
+        is_exit (bool): True if the cell is the maze exit.
+        is_on_path (bool): True if the cell is part of the solution path.
+        is_pattern (bool): True if the cell is part of the logo/pattern.
+        show_path (bool, optional): Whether to display the solution path.
+        Defaults to False.
+
+    Returns:
+        list[list[str]]: 2D list of strings representing the cell.
+    """
+    ascii_cell: list[list[str]] = [
         [" " for _ in range(width)] for _ in range(height)
     ]
 
@@ -31,89 +47,120 @@ def one_cell_list(
                 or ((i == 0 and j == width - 1) and (north > 0 or east > 0))
                 or ((i == height - 1 and j == 0) and (south > 0 or west > 0))
             ):
-                one_cell_list[i][j] = "+"
+                ascii_cell[i][j] = "+"
             elif ((i == 0) and (north > 0)) or (
                 (i == height - 1) and (south > 0)
             ):
-                one_cell_list[i][j] = "-"
+                ascii_cell[i][j] = "-"
             elif ((j == 0) and (west > 0)) or (
                 (j == width - 1) and (east > 0)
             ):
-                one_cell_list[i][j] = "|"
+                ascii_cell[i][j] = "|"
             else:
                 if i == width // 2 - 1 and j == height // 2 + 1:
                     if is_entry:
-                        one_cell_list[i][j] = "E"
+                        ascii_cell[i][j] = "E"
                     elif is_exit:
-                        one_cell_list[i][j] = "S"
+                        ascii_cell[i][j] = "S"
                     elif is_on_path and show_path:
-                        one_cell_list[i][j] = "@"
+                        ascii_cell[i][j] = "@"
                     elif is_pattern:
-                        one_cell_list[i][j] = "#"
+                        ascii_cell[i][j] = "#"
                     else:
-                        one_cell_list[i][j] = " "
+                        ascii_cell[i][j] = " "
                 else:
                     if is_pattern:
-                        one_cell_list[i][j] = "#"
+                        ascii_cell[i][j] = "#"
                     elif is_on_path and show_path:
-                        one_cell_list[i][j] = "@"
+                        ascii_cell[i][j] = "@"
                     else:
-                        one_cell_list[i][j] = " "
-    return one_cell_list
+                        ascii_cell[i][j] = " "
+    return ascii_cell
 
 
-def one_line_cell_list(cells: list[Cell], show_path: bool) -> list[list[str]]:
-    """Create a List of List of Cells on One Line"""
-    line_cells: list[list[str]] = one_cell_list(
+def generate_ascii_line(line: list[Cell], show_path: bool) -> list[list[str]]:
+    """
+    Create a single ASCII line from a list of maze cells.
+
+    Args:
+        line (list[Cell]): List of maze cells in a row.
+        show_path (bool): Whether to display the solution path.
+
+    Returns:
+        list[list[str]]: 2D list of strings representing the row of cells.
+    """
+    ascii_line: list[list[str]] = generate_ascii_cell(
         7,
         5,
-        cells[0].walls,
-        cells[0].is_entry,
-        cells[0].is_exit,
-        cells[0].is_on_path,
-        cells[0].is_pattern,
+        line[0].walls,
+        line[0].is_entry,
+        line[0].is_exit,
+        line[0].is_on_path,
+        line[0].is_pattern,
         show_path=show_path,
     )
-    cell: list[list[str]]
-    for i in range(1, (len(cells))):
-        cell = one_cell_list(
+    ascii_cell: list[list[str]]
+    for i in range(1, (len(line))):
+        ascii_cell = generate_ascii_cell(
             7,
             5,
-            cells[i].walls,
-            cells[i].is_entry,
-            cells[i].is_exit,
-            cells[i].is_on_path,
-            cells[i].is_pattern,
+            line[i].walls,
+            line[i].is_entry,
+            line[i].is_exit,
+            line[i].is_on_path,
+            line[i].is_pattern,
             show_path=show_path,
         )
-        for j in range(len(cell)):
-            if cell[j][0] == "+":
-                line_cells[j][len(line_cells[j]) - 1] = "+"
-            for k in range(1, len(cell[0])):
-                line_cells[j].append(cell[j][k])
-    return line_cells
+        for j in range(len(ascii_cell)):
+            if ascii_cell[j][0] == "+":
+                ascii_line[j][len(ascii_line[j]) - 1] = "+"
+            for k in range(1, len(ascii_cell[0])):
+                ascii_line[j].append(ascii_cell[j][k])
+    return ascii_line
 
 
-def labyrinthe_list(cells_grid: MazeGrid, show_path: bool) -> list[list[str]]:
-    """Create a Labyrinthe's List of List"""
-    labyrinthe: list[list[str]] = [[]]
+def generate_ascii_labyrinth(
+    cells_grid: MazeGrid, show_path: bool
+) -> list[list[str]]:
+    """
+    Build an ASCII representation of a maze from a grid of cells.
+
+    Args:
+        cells_grid (MazeGrid): The grid of maze cells.
+        show_path (bool): Whether to display the solution path.
+
+    Returns:
+        list[list[str]]: ASCII grid representing the maze.
+    """
+    ascii_labyrinth: list[list[str]] = [[]]
     new_line_cells: list[list[str]] = [[]]
-    labyrinthe = one_line_cell_list(cells_grid[0], show_path=show_path)
+    ascii_labyrinth = generate_ascii_line(cells_grid[0], show_path=show_path)
     for i in range(1, len(cells_grid)):
-        new_line_cells = one_line_cell_list(cells_grid[i], show_path=show_path)
+        new_line_cells = generate_ascii_line(
+            cells_grid[i], show_path=show_path
+        )
         for j in range(1, len(new_line_cells)):
-            labyrinthe.append([])
+            ascii_labyrinth.append([])
             for k in range(len(new_line_cells[j])):
                 if new_line_cells[0][k] == "+" and j == 1:
-                    labyrinthe[len(labyrinthe) - 2][k] = "+"
-                labyrinthe[len(labyrinthe) - 1].append(new_line_cells[j][k])
-    return labyrinthe
+                    ascii_labyrinth[len(ascii_labyrinth) - 2][k] = "+"
+                ascii_labyrinth[len(ascii_labyrinth) - 1].append(
+                    new_line_cells[j][k]
+                )
+    return ascii_labyrinth
 
 
 def display_walls(
     ascii_grid: list[list[str]], wall_color: int, logo_color: int
 ) -> None:
-    """Display One Cell"""
+    """
+    Print the ASCII grid to the terminal with color codes.
+
+    Args:
+        ascii_grid (list[list[str]]): The ASCII grid to display.
+        wall_color (int): ANSI color code for walls.
+        logo_color (int): ANSI color code for the logo.
+    """
     for i in range(len(ascii_grid)):
         print()
         for j in range(len(ascii_grid[i])):
@@ -136,26 +183,39 @@ def display_walls(
             )
 
 
-def display_ascii_labyrinthe(
+def display_ascii_labyrinth(
     cells_grid: MazeGrid,
     show_path: bool,
     wall_color: int,
     logo_color: int,
 ) -> None:
-    """Display a Labyrinthe with ASCII chars"""
+    """
+    Print the maze as ASCII art in the terminal with color.
+
+    Args:
+        cells_grid (MazeGrid): The grid of maze cells.
+        show_path (bool): Whether to display the solution path.
+        wall_color (int): ANSI color code for walls.
+        logo_color (int): ANSI color code for the logo.
+    """
     ascii_grid: list[list[str]]
-    ascii_grid = labyrinthe_list(cells_grid, show_path)
+    ascii_grid = generate_ascii_labyrinth(cells_grid, show_path)
     display_walls(ascii_grid, wall_color=wall_color, logo_color=logo_color)
 
 
 def ascii_visualizer(generator: MazeGenerator) -> None:
-    """Display a Maze with ASCII chars"""
+    """
+    Launch an interactive ASCII interface to visualize and manipulate the maze.
+
+    Args:
+        generator (MazeGenerator): The maze generator to visualize.
+    """
     exit = False
     show_path = False
     wall_color = 37
     logo_color = 37
     while not exit:
-        display_ascii_labyrinthe(
+        display_ascii_labyrinth(
             generator.get_structure(),
             show_path=show_path,
             wall_color=wall_color,
