@@ -567,37 +567,29 @@ class MazeGenerator:
             self._place_logo_42()
 
         if self.params.algo == "dfs":
-            self.generate_dfs(entry, exit_)
+            self.generate_dfs()
         elif self.params.algo == "kruskal":
-            self.generate_kruskal(entry, exit_)
+            self.generate_kruskal()
         else:
-            self.generate_kruskal(entry, exit_)
+            self.generate_kruskal()
         return
 
-    def generate_dfs(self, entry: Coordinate, exit_: Coordinate) -> None:
+    def generate_dfs(self) -> None:
         """Generate a maze from entry to exit.
 
         Uses a depth-first search with backtracking to carve passages,
         producing a perfect maze.
-
-        Args:
-            entry: Entry cell coordinates.
-            exit_: Exit cell coordinates.
         """
         if self._place_logo_42() and self._maze[0][0].is_pattern:
             self._explore_maze(0, 1)
         else:
             self._explore_maze(0, 0)
 
-    def generate_kruskal(self, entry: Coordinate, exit_: Coordinate) -> None:
+    def generate_kruskal(self) -> None:
         """Generate a maze from entry to exit.
 
         Uses randomized Kruskal on the grid graph and Union-Find to avoid
         cycles, producing a perfect maze.
-
-        Args:
-            entry: Entry cell coordinates.
-            exit_: Exit cell coordinates.
         """
 
         edges = self._build_candidate_edges()
