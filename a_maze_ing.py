@@ -23,8 +23,7 @@ def _missing_dependency_message(error: ImportError) -> str:
         Human-readable instruction to install dependencies.
     """
     return (
-        f"Missing dependency: {error}. "
-        "Run `make install`, then `make run`."
+        f"Missing dependency: {error}. " "Run `make install`, then `make run`."
     )
 
 
@@ -40,6 +39,7 @@ class ParsedConfig(TypedDict):
     ENABLE_TUI: bool
     SEED: int
     RATIO: float
+    GENERATION_ALGO: str
 
 
 def parse_config(config_path: Path) -> ParsedConfig:
@@ -83,6 +83,7 @@ def parse_config(config_path: Path) -> ParsedConfig:
             "ENABLE_TUI": config.ENABLE_TUI,
             "SEED": config.SEED,
             "RATIO": config.RATIO,
+            "GENERATION_ALGO": config.GENERATION_ALGO,
         }
     except ValidationError as e:
         raise ValueError(f"Invalid config file format: {e}") from e
@@ -149,6 +150,7 @@ def main() -> int:
             seed=config["SEED"],
             perfect=config["PERFECT"],
             ratio=config["RATIO"],
+            algo=config["GENERATION_ALGO"],
         )
         print(f"Maze ready: {config['WIDTH']}x{config['HEIGHT']}")
         entry = config["ENTRY"]
