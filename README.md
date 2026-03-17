@@ -197,7 +197,7 @@ EESSENNW...
 ```
 
 ## Maze Generation Algorithm
-      ### Kruskal Algorithm
+### Kruskal Algorithm
 - **Chosen algorithm:** randomized Kruskal on cell-adjacency graph
 - **Why this algorithm:** it is simple and elegant to implement, while
   naturally producing perfect mazes (spanning trees) without directional bias.
@@ -209,7 +209,7 @@ EESSENNW...
 - **Perfect maze behavior:** exactly `W*H - 1` passages opened, no cycles,
   all cells connected (single unique path between two cells)
   
-      ### Depth-First Search
+### Depth-First Search
 - **Chosen algorithm:** recursive backtracker (Depth-First Search) on the maze grid
 - **Why this algorithm:** DFS is easy to implement, intuitively follows paths, and naturally produces perfect mazes with long winding corridors, giving a different maze style than Kruskal.
 - **Performance rationale:** DFS has low memory overhead (stack-based recursion) and generates mazes quickly for moderate sizes, while ensuring all cells are visited exactly once.
@@ -217,7 +217,7 @@ EESSENNW...
 - **Seed/reproducibility strategy:** Python random.seed(SEED) used when selecting the next neighbor randomly
 - **Perfect maze behavior:** exactly W*H - 1 passages opened, no cycles, all cells connected (single unique path between any two cells)
 
-      ### Pathfinding Algorithm
+### Pathfinding Algorithm
 - **Pathfinding algorithm:** Lee/BFS.
 - **Why this pathfinding choice:** it is the simplified form of Dijkstra when
   all edges have the same weight. `A*` was considered, but in this context it
