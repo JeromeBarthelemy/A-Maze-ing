@@ -40,6 +40,7 @@ class ParsedConfig(TypedDict):
     SEED: int
     RATIO: float
     GENERATION_ALGO: str
+    ASCII_VISUALIZER: bool
 
 
 def parse_config(config_path: Path) -> ParsedConfig:
@@ -84,6 +85,7 @@ def parse_config(config_path: Path) -> ParsedConfig:
             "SEED": config.SEED,
             "RATIO": config.RATIO,
             "GENERATION_ALGO": config.GENERATION_ALGO,
+            "ASCII_VISUALIZER": config.ASCII_VISUALIZER,
         }
     except ValidationError as e:
         raise ValueError(f"Invalid config file format: {e}") from e
@@ -174,12 +176,20 @@ def main() -> int:
         print("Maze:")
         print(shortest_path)
         if config["ENABLE_TUI"]:
-            try:
-                from graphic_visualizer import MazeApp
-            except ImportError as e:
-                print(_missing_dependency_message(e), file=sys.stderr)
-                return 1
-            MazeApp(maze_generator).run()
+            if not config["ASCII_VISUALIZER"]:
+                try:
+                    from graphic_visualizer import MazeApp
+                except ImportError as e:
+                    print(_missing_dependency_message(e), file=sys.stderr)
+                    return 1
+                MazeApp(maze_generator).run()
+            else:
+                try:
+                    from ascii_visualizer import display_ascii_labyrinthe
+                except ImportError as e:
+                    print(_missing_dependency_message(e), file=sys.stderr)
+                    return 1
+                display_ascii_labyrinthe(maze_generator.get_structure())
 
         return 0
     except (ValueError, TypeError, KeyError, OSError) as e:

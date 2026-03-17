@@ -7,6 +7,7 @@ OUTPUT_FILE=maze.txt
 PERFECT=True
 GENERATION_ALGO=dfs
 ENABLE_TUI=True
+ASCII_VISUALIZER=False
 SEED=42
 # RATIO is used only when PERFECT=False.
 # If PERFECT=True, the maze remains perfect (RATIO is ignored).
