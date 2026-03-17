@@ -197,6 +197,7 @@ EESSENNW...
 ```
 
 ## Maze Generation Algorithm
+      ### Kruskal Algorithm
 - **Chosen algorithm:** randomized Kruskal on cell-adjacency graph
 - **Why this algorithm:** it is simple and elegant to implement, while
   naturally producing perfect mazes (spanning trees) without directional bias.
@@ -207,6 +208,16 @@ EESSENNW...
 - **Seed/reproducibility strategy:** Python `random.seed(SEED)`
 - **Perfect maze behavior:** exactly `W*H - 1` passages opened, no cycles,
   all cells connected (single unique path between two cells)
+  
+      ### Depth-First Search
+- **Chosen algorithm:** recursive backtracker (Depth-First Search) on the maze grid
+- **Why this algorithm:** DFS is easy to implement, intuitively follows paths, and naturally produces perfect mazes with long winding corridors, giving a different maze style than Kruskal.
+- **Performance rationale:** DFS has low memory overhead (stack-based recursion) and generates mazes quickly for moderate sizes, while ensuring all cells are visited exactly once.
+- **Data structure:** Stack (either explicit or via recursion) to track the current path and backtrack when reaching dead ends
+- **Seed/reproducibility strategy:** Python random.seed(SEED) used when selecting the next neighbor randomly
+- **Perfect maze behavior:** exactly W*H - 1 passages opened, no cycles, all cells connected (single unique path between any two cells)
+
+      ### Pathfinding Algorithm
 - **Pathfinding algorithm:** Lee/BFS.
 - **Why this pathfinding choice:** it is the simplified form of Dijkstra when
   all edges have the same weight. `A*` was considered, but in this context it
@@ -233,6 +244,24 @@ EESSENNW...
   - `+` / `-`: increase/decrease imperfection ratio
   - `←` / `→`: decrease/increase width
   - `↑` / `↓`: increase/decrease height
+    
+## ASCII Visual Representation
+- **Mode implemented:** ASCII Terminal (ascii_visualizer.py)
+- Must show:
+  - walls (+, -, |)
+  - entry (E) / exit (S)
+  - shortest path (@) when toggled
+  - optional dedicated logo/pattern for 42 (#)
+- **Controls:**
+  - q: quit
+  - r: regenerate maze (with fixed or random entry/exit)
+  - t: toggle shortest path visibility
+  - w: cycle wall color (ANSI)
+  - l: cycle logo/pattern color (ANSI)
+- **Notes:**
+Maze is displayed in a scalable ASCII grid with each cell represented as a 7×5 block(for this exemple).
+Colors are applied via ANSI codes for walls, path, entry/exit, and 42 pattern.
+Fully interactive: you can visualize the solution path, change colors, and regenerate the maze without restarting the program.
 
 ## Reusability (Mandatory)
 
@@ -286,8 +315,10 @@ path = generator.shortest_path()
   - Shortest path algorithm: BFS (Lee algorithm)
   - Visual representation: Textual TUI
 - `oguizol`: 
+  - Maze generation algorithm: Depth-First Search
   - Validation and tooling support
   - Documentation and workflow support
+  - ASCII representation
 
 ### Initial planning
 
