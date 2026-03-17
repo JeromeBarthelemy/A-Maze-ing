@@ -217,8 +217,8 @@ EESSENNW...
 - **Seed/reproducibility strategy:** Python random.seed(SEED) used when selecting the next neighbor randomly
 - **Perfect maze behavior:** exactly W*H - 1 passages opened, no cycles, all cells connected (single unique path between any two cells)
 
-### Pathfinding Algorithm
-- **Pathfinding algorithm:** Lee/BFS.
+## Pathfinding Algorithm
+- **Choosen algorithm:** Lee/BFS.
 - **Why this pathfinding choice:** it is the simplified form of Dijkstra when
   all edges have the same weight. `A*` was considered, but in this context it
   added complexity without a significant gain.
