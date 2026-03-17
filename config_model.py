@@ -30,6 +30,29 @@ class MazeConfig(BaseModel):
     RATIO: float = Field(default=0.10, ge=0.0, le=1.0)
     GENERATION_ALGO: str = "kruskal"
 
+    @model_validator(mode="after")
+    def validate_generation_algo(self) -> Self:
+        """Validate the generation algorithm choice.
+
+        Args:
+            v: The generation algorithm name.
+
+        Returns:
+            The validated algorithm name.
+
+        Raises:
+            ValueError: If the algorithm is not supported.
+        """
+        if self.GENERATION_ALGO == "dfs" and (
+            self.WIDTH > 25 or self.HEIGHT > 25
+        ):
+            raise ValueError(
+                f"Invalid GENERATION_ALGO '{self.GENERATION_ALGO}'. "
+                "Due to recursive depth limitations,"
+                "DFS algorithm is only supported for mazes up to 25x25."
+            )
+        return self
+
     @field_validator("ENTRY", "EXIT", mode="before")
     def parse_coords(cls, v: str | Tuple[int, int]) -> Tuple[int, int]:
         """Parse comma-separated coordinates into an ``(x, y)`` tuple.
