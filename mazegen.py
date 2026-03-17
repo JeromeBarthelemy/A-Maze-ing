@@ -7,7 +7,7 @@ Example:
     from mazegen import MazeGenerator
 
     generator = MazeGenerator(width=20, height=15, seed=42, perfect=True)
-    maze = generator.generate_kruskal(entry=(0, 0), exit_=(19, 14))
+    maze = generator.generate(entry=(0, 0), exit_=(19, 14))
     path = generator.shortest_path()
 """
 
