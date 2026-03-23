@@ -274,7 +274,7 @@ def test_entry_equals_exit_raises() -> None:
 
 
 def test_stale_cell_after_resize_has_no_neighbors() -> None:
-    """Ignore stale cell refs after downsizing instead of raising IndexError."""
+    """Ignore stale cell refs when downsizing instead of raising IndexError."""
     generator = MazeGenerator(width=8, height=8, seed=42, perfect=True)
     generator.generate(entry=(0, 0), exit_=(7, 7))
     stale_cell = generator.get_structure()[7][7]

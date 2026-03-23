@@ -39,7 +39,7 @@ exclude = [
     ".mypy_cache",
     ".pytest_cache",
     ".*\\.egg-info",
-    "graphic_visualizer"
+    "old_graphic_visualizer"
 ]
 
 [[tool.mypy.overrides]]
