@@ -61,6 +61,26 @@ class MazeCell(Static):
         rows_count = 4 if self.is_last_row else 3
         cols_count = 4 if self.is_last_col else 3
         show_path = bool(getattr(self.app, "show_path", True))
+        empty_color = self.palette["empty"]
+
+        def _render_solid(color: str) -> Text:
+            lines = []
+            for _ in range(rows_count):
+                line = Text()
+                for _ in range(cols_count):
+                    line.append("  ", style=f"on {color}")
+                lines.append(line)
+            return Text("\n").join(lines)
+
+        grid = self.maze_gen.get_structure()
+        r, c = self.cell.row, self.cell.col
+        if (
+            r < 0
+            or c < 0
+            or r >= len(grid)
+            or c >= len(grid[r])
+        ):
+            return _render_solid(empty_color)
 
         room_kind = "empty"
         if self.cell.is_entry:
@@ -73,7 +93,6 @@ class MazeCell(Static):
             room_kind = "pattern"
 
         wall_color = self.palette["wall"]
-        empty_color = self.palette["empty"]
         path_color = self.palette["path"]
         cell_color = self.palette[room_kind]
         path_directions = set()
@@ -131,14 +150,17 @@ class MazeCell(Static):
             WallBits.NORTH
         ) or self.cell.has_wall(WallBits.WEST)
         if not pillar_connected:
-            r, c = self.cell.row, self.cell.col
-            grid = self.maze_gen.get_structure()
             # Check North neighbor for West wall
-            if r > 0 and grid[r - 1][c].has_wall(WallBits.WEST):
+            if (
+                r > 0
+                and c < len(grid[r - 1])
+                and grid[r - 1][c].has_wall(WallBits.WEST)
+            ):
                 pillar_connected = True
             # Check West neighbor for North wall
             if (
                 not pillar_connected
+                and r < len(grid)
                 and c > 0
                 and grid[r][c - 1].has_wall(WallBits.NORTH)
             ):
@@ -515,8 +537,8 @@ class MazeApp(App[None]):
         # Flatten the 2D grid data to iterate easily
         flat_maze_data = [cell for row in maze_grid_data for cell in row]
 
-        for i, widget in enumerate(self._cell_widgets):
-            widget.cell = flat_maze_data[i]
+        for widget, cell in zip(self._cell_widgets, flat_maze_data):
+            widget.cell = cell
             widget.palette = resolved_palette
             widget.refresh()
 
@@ -698,8 +720,8 @@ class MazeApp(App[None]):
         """Resize maze dimensions and regenerate."""
         current_w = self.maze_gen.params.width
         current_h = self.maze_gen.params.height
-        new_w = max(2, current_w + dw)
-        new_h = max(2, current_h + dh)
+        new_w = max(1, current_w + dw)
+        new_h = max(1, current_h + dh)
         if new_w == current_w and new_h == current_h:
             return
 

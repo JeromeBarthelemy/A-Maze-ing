@@ -722,16 +722,30 @@ class MazeGenerator:
         Returns:
             List of neighboring cells and their wall directions.
         """
+        if not self._maze:
+            return []
+
+        # UI redraws may transiently hold references to cells from a previous
+        # maze size. Validate against the actual current grid shape (not
+        # params, which may be updated a frame earlier than _maze).
+        row_count = len(self._maze)
+        if cell.row < 0 or cell.row >= row_count:
+            return []
+        if cell.col < 0 or cell.col >= len(self._maze[cell.row]):
+            return []
+
         neighbors = []
-        if cell.row > 0:
+        if cell.row > 0 and cell.col < len(self._maze[cell.row - 1]):
             neighbors.append(
                 (self._maze[cell.row - 1][cell.col], WallBits.NORTH)
             )
-        if cell.col < self.params.width - 1:
+        if cell.col + 1 < len(self._maze[cell.row]):
             neighbors.append(
                 (self._maze[cell.row][cell.col + 1], WallBits.EAST)
             )
-        if cell.row < self.params.height - 1:
+        if cell.row + 1 < row_count and cell.col < len(
+            self._maze[cell.row + 1]
+        ):
             neighbors.append(
                 (self._maze[cell.row + 1][cell.col], WallBits.SOUTH)
             )

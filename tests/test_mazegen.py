@@ -271,3 +271,43 @@ def test_entry_equals_exit_raises() -> None:
     generator = MazeGenerator(width=5, height=5, seed=42, perfect=True)
     with pytest.raises(ValidationError, match="must differ"):
         generator.generate(entry=(2, 2), exit_=(2, 2))
+
+
+def test_stale_cell_after_resize_has_no_neighbors() -> None:
+    """Ignore stale cell refs after downsizing instead of raising IndexError."""
+    generator = MazeGenerator(width=8, height=8, seed=42, perfect=True)
+    generator.generate(entry=(0, 0), exit_=(7, 7))
+    stale_cell = generator.get_structure()[7][7]
+
+    generator.params = generator.params.__class__(
+        width=4,
+        height=4,
+        seed=42,
+        perfect=True,
+        ratio=generator.params.ratio,
+        algo=generator.params.algo,
+    )
+    generator.generate(entry=(0, 0), exit_=(3, 3))
+
+    assert generator.get_neighbors(stale_cell) == []
+    assert generator.get_reachable_neighbors(stale_cell) == []
+
+
+def test_get_neighbors_uses_grid_shape_not_future_params() -> None:
+    """Avoid out-of-range reads when params are updated before maze grid."""
+    generator = MazeGenerator(width=4, height=4, seed=42, perfect=True)
+    generator.generate(entry=(0, 0), exit_=(3, 3))
+    old_border_cell = generator.get_structure()[0][3]
+
+    # Simulate UI resize race: params changed, _maze still old size.
+    generator.params = generator.params.__class__(
+        width=8,
+        height=8,
+        seed=42,
+        perfect=True,
+        ratio=generator.params.ratio,
+        algo=generator.params.algo,
+    )
+
+    neighbors = generator.get_neighbors(old_border_cell)
+    assert all(0 <= n.col < 4 and 0 <= n.row < 4 for n, _ in neighbors)
