@@ -591,12 +591,37 @@ class MazeGenerator:
 
         Uses a depth-first search with backtracking to carve passages,
         producing a perfect maze.
+
+        Note:
+            If the maze is too large for Python's recursion stack, a warning
+            is printed and generation falls back to Kruskal automatically.
         """
         # The logo placement is already handled in ``generate``.
-        if self._maze[0][0].is_pattern and self.params.width > 1:
-            self._explore_maze(0, 1)
-        else:
-            self._explore_maze(0, 0)
+        try:
+            if self._maze[0][0].is_pattern and self.params.width > 1:
+                self._explore_maze(0, 1)
+            else:
+                self._explore_maze(0, 0)
+        except RecursionError:
+            print(
+                f"Warning: maze {self.params.width}x{self.params.height} is "
+                "too large for DFS (recursion limit exceeded). "
+                "Falling back to Kruskal."
+            )
+            self.params = GeneratorParams(
+                width=self.params.width,
+                height=self.params.height,
+                seed=self.params.seed,
+                perfect=self.params.perfect,
+                ratio=self.params.ratio,
+                algo="kruskal",
+                entry=self.params.entry,
+                exit_=self.params.exit_,
+            )
+            self.initialize_maze_grid()
+            if self._show_logo:
+                self._place_logo_42()
+            self.generate_kruskal()
 
     def generate_kruskal(self) -> None:
         """Generate a maze from entry to exit.

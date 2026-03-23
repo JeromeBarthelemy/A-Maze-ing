@@ -627,6 +627,9 @@ class MazeApp(App[None]):
             # 3. Generate new maze data
             self.maze_gen.generate(entry=entry, exit_=exit_)
 
+            # Sync algo reactive in case generate_dfs fell back to Kruskal.
+            self.algo = self.maze_gen.params.algo
+
             # 4. Re-calculate the shortest path for the new maze
             try:
                 self.maze_gen.shortest_path()
