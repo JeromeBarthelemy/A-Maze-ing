@@ -165,19 +165,19 @@ def display_walls(
         print()
         for j in range(len(ascii_grid[i])):
             if ascii_grid[i][j] in ["+", "-", "|"]:
-                CODE_COULEUR_ANSI = wall_color
+                ANSI_COLOR = wall_color
             elif ascii_grid[i][j] == "E":
-                CODE_COULEUR_ANSI = 32
+                ANSI_COLOR = 32
             elif ascii_grid[i][j] == "X":
-                CODE_COULEUR_ANSI = 33
+                ANSI_COLOR = 33
             elif ascii_grid[i][j] == "@":
-                CODE_COULEUR_ANSI = 34
+                ANSI_COLOR = 34
             elif ascii_grid[i][j] == "#":
-                CODE_COULEUR_ANSI = logo_color
+                ANSI_COLOR = logo_color
             else:
-                CODE_COULEUR_ANSI = 37
+                ANSI_COLOR = 37
             print(
-                f"\033[0;{CODE_COULEUR_ANSI}m{ascii_grid[i][j]}\033[0m", end=""
+                f"\033[0;{ANSI_COLOR}m{ascii_grid[i][j]}\033[0m", end=""
             )
 
 
