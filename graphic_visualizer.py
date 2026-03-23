@@ -297,6 +297,7 @@ class MazeApp(App[None]):
         else:
             self.ratio = self.maze_gen.params.ratio
         self._cell_widgets: list[MazeCell] = []
+        self._resize_in_progress = False
         # Avoid reading a reactive value in __init__, which can trigger
         # watchers before the widget tree exists.
         self.palette = self.PALETTE.copy()
@@ -542,8 +543,13 @@ class MazeApp(App[None]):
             widget.palette = resolved_palette
             widget.refresh()
 
-    async def action_regenerate(self, force_rebuild: bool = False) -> None:
-        """Re-generate the maze and refresh the view."""
+    async def action_regenerate(self, force_rebuild: bool = False) -> bool:
+        """Re-generate the maze and refresh the view.
+
+        Returns:
+            ``True`` if regeneration succeeded, ``False`` otherwise.
+        """
+        previous_params = self.maze_gen.params
         try:
             old_size = (
                 self.maze_gen.params.width,
@@ -594,12 +600,17 @@ class MazeApp(App[None]):
                 self.maze_revision += 1
 
             self._update_status_widget()
+            return True
         except Exception as e:
             import traceback
 
+            # Keep params/grid consistent when regeneration fails.
+            self.maze_gen.params = previous_params
+            self._update_status_widget()
             with open("/tmp/maze_error.log", "a") as f:
                 f.write(f"Error in action_regenerate: {e}\n")
                 traceback.print_exc(file=f)
+            return False
 
     def action_toggle_random_io(self) -> None:
         """Toggle fixed/random entry/exit mode for next regeneration."""
@@ -718,22 +729,32 @@ class MazeApp(App[None]):
 
     async def _resize_and_regenerate(self, dw: int = 0, dh: int = 0) -> None:
         """Resize maze dimensions and regenerate."""
-        current_w = self.maze_gen.params.width
-        current_h = self.maze_gen.params.height
-        new_w = max(1, current_w + dw)
-        new_h = max(1, current_h + dh)
-        if new_w == current_w and new_h == current_h:
+        if self._resize_in_progress:
             return
 
-        self.maze_gen.params = GeneratorParams(
-            width=new_w,
-            height=new_h,
-            seed=self.maze_gen.params.seed,
-            perfect=self.is_perfect,
-            ratio=self.ratio,
-            algo=self.maze_gen.params.algo,
-        )
-        await self.action_regenerate(force_rebuild=True)
+        self._resize_in_progress = True
+        try:
+            current_w = self.maze_gen.params.width
+            current_h = self.maze_gen.params.height
+            new_w = max(1, current_w + dw)
+            new_h = max(1, current_h + dh)
+            if new_w == current_w and new_h == current_h:
+                return
+            # Entry and exit must be distinct; a 1x1 maze is unsupported.
+            if new_w * new_h < 2:
+                return
+
+            self.maze_gen.params = GeneratorParams(
+                width=new_w,
+                height=new_h,
+                seed=self.maze_gen.params.seed,
+                perfect=self.is_perfect,
+                ratio=self.ratio,
+                algo=self.maze_gen.params.algo,
+            )
+            await self.action_regenerate(force_rebuild=True)
+        finally:
+            self._resize_in_progress = False
 
     async def action_increase_width(self) -> None:
         """Increase maze width by one cell and regenerate."""
