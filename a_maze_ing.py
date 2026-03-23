@@ -70,8 +70,10 @@ def parse_config(config_path: Path) -> ParsedConfig:
     load_dotenv(dotenv_path=config_path, override=True)
 
     try:
-        config_data: dict[str, str | None] = {
-            key: os.getenv(key) for key in MazeConfig.model_fields
+        config_data: dict[str, str] = {
+            key: value
+            for key in MazeConfig.model_fields
+            if (value := os.getenv(key)) is not None
         }
         config = MazeConfig(**config_data)  # type: ignore
         return {
@@ -88,7 +90,10 @@ def parse_config(config_path: Path) -> ParsedConfig:
             "ASCII_VISUALIZER": config.ASCII_VISUALIZER,
         }
     except ValidationError as e:
-        raise ValueError(f"Invalid config file format: {e}") from e
+        errors = "; ".join(
+            f"{err['loc'][0]}: {err['msg']}" for err in e.errors()
+        )
+        raise ValueError(f"Invalid config: {errors}") from e
     except Exception as e:
         raise ValueError(f"Failed to parse config file: {e}") from e
 
