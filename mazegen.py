@@ -155,7 +155,15 @@ class GeneratorParams(BaseModel, frozen=True):
         v: Optional[tuple[int, int]],
         info: object,
     ) -> Optional[tuple[int, int]]:
-        """Ensure coordinates are non-negative and within maze bounds."""
+        """Ensure coordinates are non-negative and within maze bounds.
+
+        Args:
+            v: Coordinate pair to validate, or ``None``.
+            info: Pydantic validation info providing sibling field values.
+
+        Returns:
+            The validated coordinate pair, or ``None`` if not provided.
+        """
         if v is None:
             return v
         x, y = v
@@ -172,7 +180,11 @@ class GeneratorParams(BaseModel, frozen=True):
 
     @model_validator(mode="after")
     def validate_entry_exit_differ(self) -> Self:
-        """Reject configurations where entry equals exit."""
+        """Reject configurations where entry equals exit.
+
+        Returns:
+            The validated model instance.
+        """
         if self.entry is not None and self.exit_ is not None:
             if self.entry == self.exit_:
                 raise ValueError(

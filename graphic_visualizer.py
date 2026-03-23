@@ -64,6 +64,14 @@ class MazeCell(Static):
         empty_color = self.palette["empty"]
 
         def _render_solid(color: str) -> Text:
+            """Render a solid colored block with no walls or markers.
+
+            Args:
+                color: Background color name for the block.
+
+            Returns:
+                Rich ``Text`` object filled with colored spaces.
+            """
             lines = []
             for _ in range(rows_count):
                 line = Text()
@@ -303,7 +311,15 @@ class MazeApp(App[None]):
         self.palette = self.PALETTE.copy()
 
     def _resolve_color(self, color_value: str) -> str:
-        """Resolve `$theme_var` color names to concrete colors."""
+        """Resolve ``$theme_var`` color names to concrete colors.
+
+        Args:
+            color_value: A color string, either a literal color or a
+                ``$variable`` referencing a CSS theme variable.
+
+        Returns:
+            Resolved concrete color string.
+        """
         if not color_value.startswith("$"):
             return color_value
 
@@ -313,14 +329,22 @@ class MazeApp(App[None]):
         return str(resolved)
 
     def _resolved_palette(self) -> dict[str, str]:
-        """Return palette with all theme vars resolved to concrete colors."""
+        """Return palette with all theme vars resolved to concrete colors.
+
+        Returns:
+            Dictionary mapping palette role names to concrete color strings.
+        """
         return {
             key: self._resolve_color(value)
             for key, value in self.palette.items()
         }
 
     def _generate_maze_cells(self) -> Iterator[MazeCell]:
-        """Generates MazeCell widgets for the current maze structure."""
+        """Generate MazeCell widgets for the current maze structure.
+
+        Yields:
+            One ``MazeCell`` widget per cell in the maze grid, row by row.
+        """
         w, h = self.maze_gen.params.width, self.maze_gen.params.height
         maze_grid_data = self.maze_gen.get_structure()
         for r in range(h):
@@ -406,7 +430,15 @@ class MazeApp(App[None]):
         preferred: tuple[int, int],
         exclude: tuple[int, int] | None = None,
     ) -> tuple[int, int]:
-        """Pick the closest valid coordinate, avoiding logo and exclusion."""
+        """Pick the closest valid coordinate, avoiding logo and exclusion.
+
+        Args:
+            preferred: Target coordinate to stay as close as possible to.
+            exclude: Coordinate to skip (e.g. already used by entry/exit).
+
+        Returns:
+            Closest valid ``(x, y)`` coordinate within maze bounds.
+        """
         w, h = self.maze_gen.params.width, self.maze_gen.params.height
         candidates: list[tuple[int, int]] = []
         for y in range(h):
@@ -435,7 +467,15 @@ class MazeApp(App[None]):
         entry: tuple[int, int],
         exit_: tuple[int, int],
     ) -> tuple[tuple[int, int], tuple[int, int]]:
-        """Clamp and relocate fixed entry/exit to valid reachable cells."""
+        """Clamp and relocate fixed entry/exit to valid reachable cells.
+
+        Args:
+            entry: Current entry coordinate, possibly out of bounds.
+            exit_: Current exit coordinate, possibly out of bounds.
+
+        Returns:
+            Tuple of ``(safe_entry, safe_exit)`` within maze bounds.
+        """
         max_x = self.maze_gen.params.width - 1
         max_y = self.maze_gen.params.height - 1
 
@@ -545,6 +585,10 @@ class MazeApp(App[None]):
 
     async def action_regenerate(self, force_rebuild: bool = False) -> bool:
         """Re-generate the maze and refresh the view.
+
+        Args:
+            force_rebuild: If ``True``, always rebuild the widget tree even
+                if maze dimensions did not change.
 
         Returns:
             ``True`` if regeneration succeeded, ``False`` otherwise.
@@ -691,7 +735,12 @@ class MazeApp(App[None]):
             self.refresh_maze_view()
 
     def watch_ratio(self, _: float, __: float) -> None:
-        """Update UI and adjust imperfections when ratio changes."""
+        """Update UI and adjust imperfections when ratio changes.
+
+        Args:
+            _: Previous ratio value.
+            __: New ratio value.
+        """
         if self._is_mounted:
             self._update_status_widget()
             if not self.is_perfect and self.maze_gen.params.perfect:
@@ -728,7 +777,12 @@ class MazeApp(App[None]):
             self.ratio = new_ratio
 
     async def _resize_and_regenerate(self, dw: int = 0, dh: int = 0) -> None:
-        """Resize maze dimensions and regenerate."""
+        """Resize maze dimensions and regenerate.
+
+        Args:
+            dw: Width delta to apply (positive to grow, negative to shrink).
+            dh: Height delta to apply (positive to grow, negative to shrink).
+        """
         if self._resize_in_progress:
             return
 

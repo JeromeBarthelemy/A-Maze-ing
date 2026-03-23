@@ -36,4 +36,5 @@ htmlcov/
 maze.txt
 
 # Local tests
-graphic_visualizer/
+old_graphic_visualizer/
+
