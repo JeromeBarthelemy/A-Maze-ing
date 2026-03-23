@@ -61,7 +61,7 @@ def generate_ascii_cell(
                     if is_entry:
                         ascii_cell[i][j] = "E"
                     elif is_exit:
-                        ascii_cell[i][j] = "S"
+                        ascii_cell[i][j] = "X"
                     elif is_on_path and show_path:
                         ascii_cell[i][j] = "@"
                     elif is_pattern:
@@ -166,11 +166,9 @@ def display_walls(
         for j in range(len(ascii_grid[i])):
             if ascii_grid[i][j] in ["+", "-", "|"]:
                 CODE_COULEUR_ANSI = wall_color
-            elif ascii_grid[i][j] == "+":
-                CODE_COULEUR_ANSI = 31
             elif ascii_grid[i][j] == "E":
                 CODE_COULEUR_ANSI = 32
-            elif ascii_grid[i][j] == "S":
+            elif ascii_grid[i][j] == "X":
                 CODE_COULEUR_ANSI = 33
             elif ascii_grid[i][j] == "@":
                 CODE_COULEUR_ANSI = 34
