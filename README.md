@@ -466,6 +466,7 @@ git push --force-with-lease
 ## Bonus
 - Support multiple maze generation algorithms.
 - Support multiple maze visualizers.
+- Algorithm toggle in the visualizer (`a`: switch between DFS and Kruskal)
 - Theme switching in the visualizer (`c`)
 - Dedicated `42` pattern color cycling (`f`)
 - Fixed/random entry-exit toggle (`i`)

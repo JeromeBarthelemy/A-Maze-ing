@@ -155,7 +155,15 @@ class GeneratorParams(BaseModel, frozen=True):
         v: Optional[tuple[int, int]],
         info: object,
     ) -> Optional[tuple[int, int]]:
-        """Ensure coordinates are non-negative and within maze bounds."""
+        """Ensure coordinates are non-negative and within maze bounds.
+
+        Args:
+            v: Coordinate pair to validate, or ``None``.
+            info: Pydantic validation info providing sibling field values.
+
+        Returns:
+            The validated coordinate pair, or ``None`` if not provided.
+        """
         if v is None:
             return v
         x, y = v
@@ -172,7 +180,11 @@ class GeneratorParams(BaseModel, frozen=True):
 
     @model_validator(mode="after")
     def validate_entry_exit_differ(self) -> Self:
-        """Reject configurations where entry equals exit."""
+        """Reject configurations where entry equals exit.
+
+        Returns:
+            The validated model instance.
+        """
         if self.entry is not None and self.exit_ is not None:
             if self.entry == self.exit_:
                 raise ValueError(
@@ -523,17 +535,17 @@ class MazeGenerator:
         Returns:
             None
         """
-        desorder: list[int] = list(range(4))
-        random.shuffle(desorder)
+        directions: list[int] = list(range(4))
+        random.shuffle(directions)
         self._maze[y][x].visited = True
         for i in range(4):
-            if desorder[i] == 0:
+            if directions[i] == 0:
                 self.move_east(y, x)
-            elif desorder[i] == 1:
+            elif directions[i] == 1:
                 self.move_south(y, x)
-            elif desorder[i] == 2:
+            elif directions[i] == 2:
                 self.move_west(y, x)
-            elif desorder[i] == 3:
+            elif directions[i] == 3:
                 self.move_north(y, x)
 
     def generate(self, entry: Coordinate, exit_: Coordinate) -> None:
@@ -579,11 +591,37 @@ class MazeGenerator:
 
         Uses a depth-first search with backtracking to carve passages,
         producing a perfect maze.
+
+        Note:
+            If the maze is too large for Python's recursion stack, a warning
+            is printed and generation falls back to Kruskal automatically.
         """
-        if self._place_logo_42() and self._maze[0][0].is_pattern:
-            self._explore_maze(0, 1)
-        else:
-            self._explore_maze(0, 0)
+        # The logo placement is already handled in ``generate``.
+        try:
+            if self._maze[0][0].is_pattern and self.params.width > 1:
+                self._explore_maze(0, 1)
+            else:
+                self._explore_maze(0, 0)
+        except RecursionError:
+            print(
+                f"Warning: maze {self.params.width}x{self.params.height} is "
+                "too large for DFS (recursion limit exceeded). "
+                "Falling back to Kruskal."
+            )
+            self.params = GeneratorParams(
+                width=self.params.width,
+                height=self.params.height,
+                seed=self.params.seed,
+                perfect=self.params.perfect,
+                ratio=self.params.ratio,
+                algo="kruskal",
+                entry=self.params.entry,
+                exit_=self.params.exit_,
+            )
+            self.initialize_maze_grid()
+            if self._show_logo:
+                self._place_logo_42()
+            self.generate_kruskal()
 
     def generate_kruskal(self) -> None:
         """Generate a maze from entry to exit.
@@ -722,16 +760,30 @@ class MazeGenerator:
         Returns:
             List of neighboring cells and their wall directions.
         """
+        if not self._maze:
+            return []
+
+        # UI redraws may transiently hold references to cells from a previous
+        # maze size. Validate against the actual current grid shape (not
+        # params, which may be updated a frame earlier than _maze).
+        row_count = len(self._maze)
+        if cell.row < 0 or cell.row >= row_count:
+            return []
+        if cell.col < 0 or cell.col >= len(self._maze[cell.row]):
+            return []
+
         neighbors = []
-        if cell.row > 0:
+        if cell.row > 0 and cell.col < len(self._maze[cell.row - 1]):
             neighbors.append(
                 (self._maze[cell.row - 1][cell.col], WallBits.NORTH)
             )
-        if cell.col < self.params.width - 1:
+        if cell.col + 1 < len(self._maze[cell.row]):
             neighbors.append(
                 (self._maze[cell.row][cell.col + 1], WallBits.EAST)
             )
-        if cell.row < self.params.height - 1:
+        if cell.row + 1 < row_count and cell.col < len(
+            self._maze[cell.row + 1]
+        ):
             neighbors.append(
                 (self._maze[cell.row + 1][cell.col], WallBits.SOUTH)
             )
