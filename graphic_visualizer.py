@@ -519,22 +519,22 @@ class MazeApp(App[None]):
     def _status_text(self) -> str:
         """Build the full status text shown under the header."""
         mode = (
-            "Parfait"
+            "Perfect"
             if self.is_perfect
-            else f"Imparfait ({int(self.ratio * 100)}%)"
+            else f"Imperfect ({int(self.ratio * 100)}%)"
         )
         algo = "Kruskal" if self.algo == "kruskal" else "DFS"
         io_mode = (
-            "Entrées/Sorties fixes"
+            "Fixed entry/exit"
             if not self.random_io
-            else "Entrées/Sorties aléatoires"
+            else "Random entry/exit"
         )
         size = f"{self.maze_gen.params.width}x{self.maze_gen.params.height}"
         entry = self._format_coord(self.maze_gen._entry)
         exit_ = self._format_coord(self.maze_gen._exit)
         return (
             f"[Mode] {mode} | {algo} | {io_mode} | "
-            f"Taille: {size} | Entrée: {entry} | Sortie: {exit_}"
+            f"Size: {size} | Entry: {entry} | Exit: {exit_}"
         )
 
     def _configure_grid_dimensions(self) -> None:

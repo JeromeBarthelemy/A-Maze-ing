@@ -535,17 +535,17 @@ class MazeGenerator:
         Returns:
             None
         """
-        desorder: list[int] = list(range(4))
-        random.shuffle(desorder)
+        directions: list[int] = list(range(4))
+        random.shuffle(directions)
         self._maze[y][x].visited = True
         for i in range(4):
-            if desorder[i] == 0:
+            if directions[i] == 0:
                 self.move_east(y, x)
-            elif desorder[i] == 1:
+            elif directions[i] == 1:
                 self.move_south(y, x)
-            elif desorder[i] == 2:
+            elif directions[i] == 2:
                 self.move_west(y, x)
-            elif desorder[i] == 3:
+            elif directions[i] == 3:
                 self.move_north(y, x)
 
     def generate(self, entry: Coordinate, exit_: Coordinate) -> None:
