@@ -580,7 +580,8 @@ class MazeGenerator:
         Uses a depth-first search with backtracking to carve passages,
         producing a perfect maze.
         """
-        if self._place_logo_42() and self._maze[0][0].is_pattern:
+        # The logo placement is already handled in ``generate``.
+        if self._maze[0][0].is_pattern and self.params.width > 1:
             self._explore_maze(0, 1)
         else:
             self._explore_maze(0, 0)
