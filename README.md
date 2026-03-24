@@ -287,9 +287,6 @@ Generated files will be available in `dist/` with names like:
 - `mazegen-0.2.0-py3-none-any.whl`
 - `mazegen-0.2.0.tar.gz`
 
-For final submission, copy at least one generated artifact to repository root
-to match the project requirement.
-
 ### How to use (short doc)
 ```python
 from mazegen import MazeGenerator
@@ -475,20 +472,3 @@ git push --force-with-lease
 - Extended status/header information (mode, size, entry/exit coordinates)
 - Optional TUI launch via config (`ENABLE_TUI=True`), with non-interactive
   CLI output by default
-
-## Current Project Status
-
-**Implemented:**
-- ✅ Config parsing/validation with Pydantic
-- ✅ Maze generation with randomized Kruskal + Union-Find
-- ✅ Shortest path with Lee/BFS
-- ✅ Hex output file generation from CLI
-- ✅ Textual visualizer with entry/exit/pattern/path highlighting
-- ✅ Packaging (`make package`) for reusable `mazegen` module
-- ✅ Linting/typing workflow (`make lint`, `make lint-strict`)
-
-## Submission Notes
-- Ensure `README.md` is complete and up to date
-- Ensure default config file is present in repository ✅
-- Ensure package build inputs are present (`mazegen-*` buildable) ✅
-- Ensure mandatory checks pass before evaluation (`make lint`, `make run`)
