@@ -200,7 +200,7 @@ def main() -> int:
     except (ValueError, TypeError, KeyError, OSError) as e:
         print(f"Error during maze generation: {e}", file=sys.stderr)
         return 1
-    except Exception as e:
+    except (Exception, BaseException) as e:
         print(f"Unexpected runtime error: {e}", file=sys.stderr)
         return 1
 
