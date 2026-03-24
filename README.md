@@ -288,13 +288,41 @@ Generated files will be available in `dist/` with names like:
 - `mazegen-0.2.0.tar.gz`
 
 ### How to use (short doc)
+
+You can easily test the built package in an isolated virtual environment using `uv`:
+
+```bash
+# Create a virtual environment
+uv venv
+
+# Install the built package
+uv pip install mazegen-*.whl
+# or
+uv pip install mazegen-*.tar.gz
+```
+
+Once installed, you can use the module in a minimal Python script:
+
 ```python
+# Create a file test_mazegen.py
 from mazegen import MazeGenerator
 
-generator = MazeGenerator(width=20, height=15, seed=42, perfect=True)
-generator.generate(entry=(0, 0), exit_=(19, 14))
-maze = generator.get_structure()
-path = generator.shortest_path()
+def main():
+    generator = MazeGenerator(width=20, height=15, seed=42, perfect=True)
+    generator.generate(entry=(0, 0), exit_=(19, 14))
+    maze = generator.get_structure()
+    path = generator.shortest_path()
+    
+    print(f"Generated a {generator.params.width}x{generator.params.height} perfect maze.")
+    print(f"Shortest path: {path}")
+
+if __name__ == "__main__":
+    main()
+```
+
+And run it with :
+```bash
+uv run python test_mazegen.py
 ```
 
 ### Exposed API checklist
