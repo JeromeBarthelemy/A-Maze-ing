@@ -2,6 +2,12 @@
 
 # A-Maze-ing
 
+![The maze generator running: regeneration, shortest path, successive sizes and themes](docs/maze-demo.gif)
+
+*The Textual visualizer: regenerating the maze, toggling the shortest path, and changing
+size and theme on the fly — with the `42` pattern reserved at the centre whenever the
+dimensions allow it. Higher-quality recording: [`docs/maze-demo.mp4`](docs/maze-demo.mp4).*
+
 ## Description
 - **Goal:** Generate a valid maze from a config file, export it in the expected hexadecimal format, and provide a visual representation.
 - **Project overview:**
@@ -464,8 +470,8 @@ git push --force-with-lease
 ├── Makefile                   # Build automation
 ├── .gitignore                 # Git exclusions
 ├── README.md                  # This file
+├── docs/                      # Animated demo (GIF + MP4)
 ├── output_validator.py        # Provided validation script
-├── en.subject.pdf             # Project subject
 ```
 
 ## Resources

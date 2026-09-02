@@ -38,3 +38,7 @@ maze.txt
 # Local tests
 old_graphic_visualizer/
 
+
+# Built packages (produced by `make package`)
+*.whl
+*.tar.gz
