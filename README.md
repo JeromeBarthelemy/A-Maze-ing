@@ -6,7 +6,9 @@
 
 *The Textual visualizer: regenerating the maze, toggling the shortest path, and changing
 size and theme on the fly — with the `42` pattern reserved at the centre whenever the
-dimensions allow it. Higher-quality recording: [`docs/maze-demo.mp4`](docs/maze-demo.mp4).*
+dimensions allow it. Full-resolution recordings (1920x1080): the Textual viewer in
+[`docs/maze-textual.mp4`](docs/maze-textual.mp4), the ASCII fallback in
+[`docs/maze-ascii.mp4`](docs/maze-ascii.mp4).*
 
 ## Description
 - **Goal:** Generate a valid maze from a config file, export it in the expected hexadecimal format, and provide a visual representation.
